@@ -1,0 +1,56 @@
+[
+  {
+    "id": "kb_001",
+    "subject": "Fever",
+    "subjectType": "FINDING",
+    "relation": "CAUSES",
+    "object": "Bacterial Meningitis",
+    "objectType": "ETIOLOGIC_AGENT",
+    "metadata": { "urgency": 1.0, "specificity": 0.3, "inquiryCost": 0.1 }
+  },
+  {
+    "id": "kb_002",
+    "subject": "Fever",
+    "subjectType": "FINDING",
+    "relation": "CAUSES",
+    "object": "Influenza",
+    "objectType": "ETIOLOGIC_AGENT",
+    "metadata": { "urgency": 0.4, "specificity": 0.5, "inquiryCost": 0.2 }
+  },
+  {
+    "id": "kb_003",
+    "subject": "Bacterial Meningitis",
+    "subjectType": "ETIOLOGIC_AGENT",
+    "relation": "INDUCES",
+    "object": "Neck Stiffness",
+    "objectType": "PHYSIOLOGIC_STATE",
+    "metadata": { "urgency": 0.9, "specificity": 0.8, "inquiryCost": 0.3 }
+  },
+  {
+    "id": "kb_004",
+    "subject": "Bacterial Meningitis",
+    "subjectType": "ETIOLOGIC_AGENT",
+    "relation": "CONFIRMED_BY",
+    "object": "Lumbar Puncture",
+    "objectType": "FINDING",
+    "metadata": { "urgency": 0.8, "specificity": 0.95, "inquiryCost": 0.7 }
+  },
+  {
+    "id": "kb_005",
+    "subject": "Influenza",
+    "subjectType": "ETIOLOGIC_AGENT",
+    "relation": "INDUCES",
+    "object": "Myalgia",
+    "objectType": "PHYSIOLOGIC_STATE",
+    "metadata": { "urgency": 0.2, "specificity": 0.4, "inquiryCost": 0.1 }
+  },
+  {
+    "id": "kb_006",
+    "subject": "Influenza",
+    "subjectType": "ETIOLOGIC_AGENT",
+    "relation": "CONFIRMED_BY",
+    "object": "Rapid Flu Test",
+    "objectType": "FINDING",
+    "metadata": { "urgency": 0.3, "specificity": 0.9, "inquiryCost": 0.4 }
+  }
+]

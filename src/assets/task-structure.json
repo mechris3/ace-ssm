@@ -1,0 +1,10 @@
+{
+  "entityTypes": ["FINDING", "ETIOLOGIC_AGENT", "PHYSIOLOGIC_STATE", "TREATMENT"],
+  "relations": [
+    { "type": "CAUSES", "from": "FINDING", "to": "ETIOLOGIC_AGENT" },
+    { "type": "INDUCES", "from": "ETIOLOGIC_AGENT", "to": "PHYSIOLOGIC_STATE" },
+    { "type": "TREATS", "from": "TREATMENT", "to": "ETIOLOGIC_AGENT" },
+    { "type": "CONFIRMED_BY", "from": "ETIOLOGIC_AGENT", "to": "FINDING" },
+    { "type": "CONFIRMED_BY", "from": "PHYSIOLOGIC_STATE", "to": "FINDING" }
+  ]
+}
