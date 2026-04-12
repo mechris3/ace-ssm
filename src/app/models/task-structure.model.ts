@@ -60,19 +60,39 @@ export interface IRelation {
  * ```
  */
 export interface ITaskStructure {
-  /**
-   * All valid entity type labels in this domain.
-   *
-   * @remarks
-   * DESIGN DECISION: Stored as `string[]` (not a Set) because the JSON
-   * serialization format is an array, and the validation logic iterates
-   * linearly — the list is small enough that O(n) lookup is acceptable.
-   */
   entityTypes: string[];
+  relations: IRelation[];
 
   /**
-   * All valid directed relation types. Each relation's `from` and `to`
-   * must reference entries in `entityTypes` — enforced by the reducer.
+   * Optional declarative goal constraints.
+   * [Ref: Paper 1 Sec 3.2.1 / Paper 2 Sec 4.1 / Gap Analysis Gap 8]
+   *
+   * Each constraint specifies a condition that must hold in the SSM.
+   * The Goal Generator evaluates these in addition to its built-in
+   * gap detection logic.
+   *
+   * Example: "every Condition node must have a TREATED_BY edge"
+   * ```json
+   * [{ "nodeType": "Condition", "requiredRelation": "TREATED_BY", "direction": "forward" }]
+   * ```
    */
-  relations: IRelation[];
+  goalConstraints?: IGoalConstraint[];
+}
+
+/**
+ * A declarative goal constraint that the SSM must satisfy.
+ * [Ref: Paper 2 Sec 4.1 — formalized as first-order predicate calculus]
+ *
+ * Simplified from the paper's full predicate logic to a practical
+ * "every node of type X must have a relation Y" pattern.
+ */
+export interface IGoalConstraint {
+  /** The entity type this constraint applies to. */
+  nodeType: string;
+  /** The relation type that must exist. */
+  requiredRelation: string;
+  /** Direction: 'forward' = node must be source, 'reverse' = node must be target. */
+  direction: 'forward' | 'reverse';
+  /** Optional: only apply to nodes with this status. */
+  onlyStatus?: string;
 }

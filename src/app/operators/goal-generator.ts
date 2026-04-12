@@ -129,5 +129,46 @@ export function generateGoals(ssm: ISSMState, taskStructure: ITaskStructure): IG
       direction: 'forward' as GoalDirection,
     }));
 
-  return [...expandGoals, ...upgradeGoals];
+  // ═══════════════════════════════════════════════════════════════════
+  // DECLARATIVE GOAL CONSTRAINTS
+  // [Ref: Paper 2 Sec 4.1 / Gap Analysis Gap 8]
+  //
+  // WHY: Domain authors can define custom goal constraints in the Task
+  // Structure. These are evaluated in addition to the built-in gap
+  // detection, allowing domain-specific reasoning rules without
+  // changing the engine code.
+  // ═══════════════════════════════════════════════════════════════════
+  const constraintGoals: IGoal[] = [];
+  if (taskStructure.goalConstraints) {
+    for (const constraint of taskStructure.goalConstraints) {
+      const matchingNodes = ssm.nodes.filter(n => {
+        if (n.type !== constraint.nodeType) return false;
+        if (constraint.onlyStatus && n.status !== constraint.onlyStatus) return false;
+        return true;
+      });
+
+      for (const node of matchingNodes) {
+        const hasEdge = constraint.direction === 'forward'
+          ? ssm.edges.some(e => e.source === node.id && e.relationType === constraint.requiredRelation)
+          : ssm.edges.some(e => e.target === node.id && e.relationType === constraint.requiredRelation);
+
+        if (!hasEdge) {
+          const rel = taskStructure.relations.find(r => r.type === constraint.requiredRelation);
+          if (rel) {
+            constraintGoals.push({
+              id: `goal_${crypto.randomUUID()}`,
+              kind: 'EXPAND' as GoalKind,
+              anchorNodeId: node.id,
+              anchorLabel: node.label,
+              targetRelation: constraint.requiredRelation,
+              targetType: constraint.direction === 'forward' ? rel.to : rel.from,
+              direction: constraint.direction as GoalDirection,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return [...expandGoals, ...upgradeGoals, ...constraintGoals];
 }

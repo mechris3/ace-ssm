@@ -45,6 +45,8 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() activeGoal: IGoal | null = null;
   @Input() selectedNodeId: string | null = null;
   @Input() highlightNodeId: string | null = null;
+  /** [Ref: Gap 5] Node IDs that have pending/unsatisfied goals — shown with dashed outline. */
+  @Input() pendingGoalNodeIds: Set<string> = new Set();
 
   @Output() onNodeClick = new EventEmitter<string>();
 
@@ -227,6 +229,7 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         let cls = 'node-group status-' + d.status;
         if (d.id === this.selectedNodeId) { cls += ' selected'; }
         if (d.id === this.highlightNodeId) { cls += ' highlight-node'; }
+        if (this.pendingGoalNodeIds.has(d.id)) { cls += ' has-pending-goals'; }
         return cls;
       });
 

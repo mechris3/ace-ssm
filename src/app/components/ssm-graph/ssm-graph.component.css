@@ -117,3 +117,18 @@
     stroke-width: 6;
   }
 }
+
+/* ── Ghost/Pending nodes ──────────────────────────────────────────── */
+/* [Ref: Paper 1 Sec 3.2 / Gap 5 - Unsatisfied Node-Chains visualization] */
+
+.node-group.has-pending-goals circle {
+  stroke: var(--color-action-primary);
+  stroke-width: 2;
+  stroke-dasharray: 3 3;
+  animation: pending-pulse 2s ease-in-out infinite;
+}
+
+@keyframes pending-pulse {
+  0%, 100% { stroke-opacity: 0.4; }
+  50% { stroke-opacity: 1; }
+}

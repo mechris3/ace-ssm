@@ -217,7 +217,7 @@ Every local goal constraint inspects properties of a single ontological object t
 2. ~~**Gap 4: Certainty Factors**~~ — ✅ IMPLEMENTED
 3. ~~**Gap 2: Global Strategic Principles (S_G)**~~ — ✅ IMPLEMENTED
 4. ~~**Gap 3: Focus Node / S_L**~~ — ✅ IMPLEMENTED
-5. **Gap 7: SSM-DKM Methodology Tooling** — LOW (usability, not engine logic)
-6. **Gap 5: Unsatisfied Node-Chains** — LOW, keep current approach
-7. **Gap 6: Meta-SSM** — LOW, visualization feature
-8. **Gap 8: Formalized Goal Constraints** — LOW, future extensibility
+5. ~~**Gap 7: SSM-DKM Domain Validation**~~ — ✅ IMPLEMENTED
+6. ~~**Gap 5: Pending Goals Visualization**~~ — ✅ IMPLEMENTED (CSS + input, lightweight)
+7. ~~**Gap 6: Meta-SSM Reasoning Chains**~~ — ✅ IMPLEMENTED (data structure + grouping function)
+8. ~~**Gap 8: Declarative Goal Constraints**~~ — ✅ IMPLEMENTED

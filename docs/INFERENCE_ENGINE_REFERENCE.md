@@ -464,6 +464,54 @@ This is additive with all other scoring factors. If `goalOrdering` is absent or 
 
 **Domain authors** can configure S_L ordering in the domain JSON's `strategy` section. If omitted, the engine uses the default strategy with no ordering preferences.
 
+### 4.11 Domain Validation
+
+[Ref: Paper 2 Sec 4.3 / Gap Analysis Gap 7]
+
+When a domain JSON is loaded, the engine runs validation checks and logs warnings to the console. These checks implement a simplified version of the SSM-DKM validation stage:
+
+- **Task Structure completeness:** entity types must exist, relations must exist, no orphan entity types
+- **KB coverage:** every relation in the Task Structure should have at least one KB fragment
+- **KB consistency:** fragment subject/object types must match the relation's from/to types
+- **SSM seed nodes:** at least one seed node should exist, seed node types must be in entityTypes
+- **Seed node reachability:** seed nodes should be of leaf types (targets of relations) so abductive reasoning can reach them
+
+Warnings are non-blocking — the domain loads regardless, but the console output helps domain authors identify issues.
+
+### 4.12 Declarative Goal Constraints
+
+[Ref: Paper 1 Sec 3.2.1 / Paper 2 Sec 4.1 / Gap Analysis Gap 8]
+
+Domain authors can define custom goal constraints in the Task Structure's optional `goalConstraints` array. Each constraint specifies that every node of a given type must have a specific relation:
+
+```json
+{
+  "goalConstraints": [
+    { "nodeType": "Condition", "requiredRelation": "TREATED_BY", "direction": "forward" }
+  ]
+}
+```
+
+The Goal Generator evaluates these constraints in addition to its built-in gap detection. For each node matching the constraint's `nodeType` (and optional `onlyStatus`), if the required edge doesn't exist, an EXPAND goal is emitted.
+
+This makes the engine extensible without code changes — domain authors can add reasoning rules that are specific to their domain's ontology.
+
+### 4.13 Pending Goals Visualization
+
+[Ref: Paper 1 Sec 3.2 / Gap Analysis Gap 5]
+
+Nodes that have unsatisfied goals (pending subgoals) can be visually indicated in the SSM graph with a dashed pulsing outline. The `pendingGoalNodeIds` input on the graph component accepts a set of node IDs to highlight.
+
+This implements a lightweight version of the paper's concept of "unsatisfied node-chains posted in the SSM" — rather than persisting unbound nodes in the state, we show which bound nodes still have work to do.
+
+### 4.14 Meta-SSM — Reasoning Chains
+
+[Ref: Paper 1 Sec 5.3 / Gap Analysis Gap 6]
+
+The `buildReasoningChains()` function groups consecutive ReasoningSteps into higher-level "reasoning chains" based on context switches (user action vs. system reasoning). Each chain has a label, type, time range, and the steps it contains.
+
+This is a simplified version of the paper's full Meta-SSM concept. The paper envisions a meta-system that creates its own SSM for modeling what the object system is doing, with nodes representing lines of reasoning and edges representing S_G-triggered switches. Our implementation provides the data structure for this view; a full Meta-SSM tab could be added as a future enhancement.
+
 ---
 
 ## 5. Inquiry System (Finding Confirmation)

@@ -26,6 +26,7 @@ import { selectTaskStructure, selectTaskStructureLoaded, selectTaskStructureErro
 import { selectRelations } from '../store/task-structure/task-structure.selectors';
 import { selectAllFragments, selectKnowledgeBaseLoaded, selectKnowledgeBaseError } from '../store/knowledge-base/knowledge-base.selectors';
 import { computeDifferential, IDifferentialEntry } from '../store/ssm/ssm.selectors';
+import { validateDomain } from '../operators/domain-validator';
 
 export interface IViewModel {
   ssm: ISSMState;
@@ -165,6 +166,14 @@ export class FacadeService {
       if (parsed.strategy) {
         this.store.dispatch(StrategyActions.updateStrategy({ name: parsed.strategy.name, weights: parsed.strategy.weights }));
         this.store.dispatch(StrategyActions.updatePacerDelay({ pacerDelay: parsed.strategy.pacerDelay }));
+      }
+
+      // [Ref: Paper 2 Sec 4.3 / Gap 7] Validate the loaded domain
+      const ssmNodes = parsed.ssm?.nodes ?? [];
+      const warnings = validateDomain(parsed.structure, parsed.knowledgeBase, ssmNodes as any[]);
+      if (warnings.length > 0) {
+        console.warn(`[ACE-SSM] Domain validation warnings (${warnings.length}):`);
+        warnings.forEach(w => console.warn(`  ⚠ ${w}`));
       }
     } catch (e) {
       this.store.dispatch(TaskStructureActions.loadTaskStructureFailure({
