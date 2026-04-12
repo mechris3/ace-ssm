@@ -238,6 +238,7 @@ For each HYPOTHESIS node:
 rawScore = (MAX(urgency) × 100 × weights.urgency)
          + (parsimony_bonus × weights.parsimony)
          + (anchor_cf × 20 × weights.parsimony)
+         + (focus_bonus × weights.parsimony)
          - (MEAN(inquiryCost) × 100 × weights.costAversion)
 ```
 
@@ -245,6 +246,7 @@ Where:
 - **MAX(urgency):** The highest urgency value across all KB fragments matching this goal's anchor (by label or node ID) + target relation. The Search Operator uses the same cascading match as the Knowledge Operator (exact relation first, then broad fallback). Uses MAX (not MEAN) because the engine must pivot to the most dangerous possibility immediately.
 - **Parsimony bonus:** 50 points (before weight) if the SSM already contains at least one node of the target entity type. Additionally, for reverse goals, a multi-evidence bonus of 30 points per additional CONFIRMED node that the candidate explains is added. This prioritizes Conditions that unify multiple confirmed findings (e.g., a Condition explaining both Meningism and Thunderclap_Headache scores higher than one explaining only Meningism).
 - **Certainty bonus:** `anchor.cf × 20 × weights.parsimony`. Goals anchored on high-certainty nodes score higher, ensuring the engine prefers to expand well-supported hypotheses over uncertain ones.
+- **Focus bonus:** 25 points (before weight) if the goal's anchor node is within the currently focused SSM subgraph (see Section 4.9). This keeps the engine focused on one candidate solution at a time.
 - **MEAN(inquiryCost):** Average inquiry cost across matching KB fragments. Uses MEAN (not MAX) because cost is an expected-value calculation.
 
 #### 3.2.2 Scoring Formula for STATUS_UPGRADE Goals
@@ -410,6 +412,22 @@ If any candidate achieves **complete coverage** (covers ALL seed findings), the 
 
 The differential is displayed in the UI via the Differential Panel component, showing each candidate's label, coverage bar, CF value, and WINNER/candidate badge.
 
+### 4.9 Solution Focus — Global Strategic Principles (S_G)
+
+[Ref: Paper 1 Sec 3.2.3 / Paper 2 Sec 3.2 / Gap Analysis Gap 2]
+
+After computing the differential, the engine evaluates global strategic principles (S_G) to determine which candidate solution to focus on. The `solutionFocusNodeId` in the engine state tracks the root node of the currently pursued SSM subgraph.
+
+**S_G evaluation rules (simplified from the paper's s1-s6):**
+1. If no current focus exists, pick the strongest candidate (highest coverage + CF)
+2. If the current focus is no longer in the differential, switch to the strongest
+3. If another candidate has become stronger than the current focus, switch to it
+4. Otherwise, stay on the current focus
+
+**Effect on scoring:** Goals whose anchor node is within the focused subgraph receive a +25 parsimony-weighted bonus. This keeps the engine focused on one candidate solution at a time rather than jumping erratically between unrelated branches.
+
+Focus switches are logged to the console for debugging: `[ACE-SSM] Solution focus switched: "X" → "Y"`.
+
 ---
 
 ## 5. Inquiry System (Finding Confirmation)
@@ -499,6 +517,7 @@ Confirm, Refute, and Skip actions each produce a ReasoningStep in the history:
 | `engineInquiryAnswered` | INQUIRY | IDLE |
 | `engineReset` | ANY | IDLE |
 | `setActiveGoal` | ANY | (updates `activeGoal` field only) |
+| `setSolutionFocus` | ANY | (updates `solutionFocusNodeId` field only — see Section 4.9) |
 
 ---
 

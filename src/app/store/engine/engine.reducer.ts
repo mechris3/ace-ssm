@@ -35,12 +35,21 @@ export interface EngineSliceState {
   state: EngineState;
   /** The currently active goal during a pulse, used by the Searchlight Effect. */
   activeGoal: IGoal | null;
+  /**
+   * The ID of the root node of the currently focused SSM subgraph.
+   * [Ref: Paper 1 Sec 3.2.3 / Gap 2 - Global Strategic Principles (S_G)]
+   * WHY: The engine focuses on one candidate solution at a time. S_G
+   * principles determine when to switch focus to a different candidate.
+   * Goals within the focused subgraph receive a scoring bonus.
+   */
+  solutionFocusNodeId: string | null;
 }
 
 /** Initial engine state — IDLE, ready to start. */
 export const initialEngineState: EngineSliceState = {
   state: EngineState.IDLE,
   activeGoal: null,
+  solutionFocusNodeId: null,
 };
 
 export const engineReducer = createReducer(
@@ -79,5 +88,8 @@ export const engineReducer = createReducer(
   on(EngineActions.setActiveGoal, (s, { goal }) => ({ ...s, activeGoal: goal })),
 
   // [Ref: MD Sec 6.3] ANY → IDLE: Universal reset, always valid.
-  on(EngineActions.engineReset, () => ({ state: EngineState.IDLE, activeGoal: null })),
+  on(EngineActions.engineReset, () => ({ state: EngineState.IDLE, activeGoal: null, solutionFocusNodeId: null })),
+
+  // [Ref: Paper 1 Sec 3.2.3 / Gap 2] Set the solution focus.
+  on(EngineActions.setSolutionFocus, (s, { nodeId }) => ({ ...s, solutionFocusNodeId: nodeId })),
 );

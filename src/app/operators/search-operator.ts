@@ -31,8 +31,33 @@ export function scoreGoals(
   ssm: ISSMState,
   kb: IKnowledgeFragment[],
   strategy: IStrategy,
-  unknownPenalty: number = 0.05
+  unknownPenalty: number = 0.05,
+  solutionFocusNodeId: string | null = null
 ): { selectedGoal: IGoal; rationale: IReasoningStep } {
+
+  // [Ref: Paper 1 Sec 3.2.3 / Gap 2] Build the set of node IDs reachable
+  // from the solution focus for the focus bonus calculation.
+  const focusSubgraphIds = new Set<string>();
+  if (solutionFocusNodeId) {
+    const queue = [solutionFocusNodeId];
+    focusSubgraphIds.add(solutionFocusNodeId);
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      for (const e of ssm.edges) {
+        const src = typeof e.source === 'string' ? e.source : (e.source as any).id;
+        const tgt = typeof e.target === 'string' ? e.target : (e.target as any).id;
+        if (src === current && !focusSubgraphIds.has(tgt)) {
+          focusSubgraphIds.add(tgt);
+          queue.push(tgt);
+        }
+        if (tgt === current && !focusSubgraphIds.has(src)) {
+          focusSubgraphIds.add(src);
+          queue.push(src);
+        }
+      }
+    }
+  }
+
   const scored = goals.map(goal => {
     const anchor = ssm.nodes.find(n => n.id === goal.anchorNodeId);
     const factors: IRationaleFactor[] = [];
@@ -150,7 +175,19 @@ export function scoreGoals(
       { label: 'Certainty', impact: cfBonus, explanation: `Anchor "${anchor?.label}" has CF=${(anchor?.cf ?? 0.5).toFixed(2)}.` },
     );
 
-    const rawScore = urgencyScore + parsimonyScore + cfBonus - costScore;
+    // [Ref: Paper 1 Sec 3.2.3 / Gap 2] Focus bonus: goals within the
+    // currently focused SSM subgraph score higher. This keeps the engine
+    // focused on one candidate solution at a time, as the paper prescribes.
+    const focusBonus = (focusSubgraphIds.size > 0 && focusSubgraphIds.has(goal.anchorNodeId))
+      ? 25 * strategy.weights.parsimony
+      : 0;
+    if (focusBonus > 0) {
+      factors.push(
+        { label: 'Solution Focus', impact: focusBonus, explanation: `Goal is within the focused candidate subgraph.` },
+      );
+    }
+
+    const rawScore = urgencyScore + parsimonyScore + cfBonus + focusBonus - costScore;
 
     // ═════════════════════════════════════════════════════════════════
     // Anchor Status Penalties

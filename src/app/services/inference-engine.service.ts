@@ -33,7 +33,7 @@ import { selectTaskStructure } from '../store/task-structure/task-structure.sele
 import { selectRelations } from '../store/task-structure/task-structure.selectors';
 import { selectAllFragments } from '../store/knowledge-base/knowledge-base.selectors';
 import { selectStrategy } from '../store/strategy/strategy.selectors';
-import { selectEngineState } from '../store/engine/engine.selectors';
+import { selectEngineState, selectSolutionFocusNodeId } from '../store/engine/engine.selectors';
 
 import { EngineState } from '../models/engine.model';
 import { ISSMNode, ISSMEdge, ISSMState, IGoal } from '../models/ssm.model';
@@ -42,6 +42,7 @@ import { IKnowledgeFragment } from '../models/knowledge-base.model';
 import { ITaskStructure } from '../models/task-structure.model';
 import { IRelation } from '../models/task-structure.model';
 import { computeDifferential } from '../store/ssm/ssm.selectors';
+import { evaluateSolutionFocus } from '../operators/solution-focus';
 
 import * as SSMActions from '../store/ssm/ssm.actions';
 import * as EngineActions from '../store/engine/engine.actions';
@@ -81,15 +82,16 @@ export class InferenceEngineService {
         this.store.select(selectAllFragments),
         this.store.select(selectStrategy),
         this.store.select(selectEngineState),
-        this.store.select(selectRelations)
+        this.store.select(selectRelations),
+        this.store.select(selectSolutionFocusNodeId)
       ),
       // [Ref: MD Sec 4.3 Step 2] Gate check — only THINKING state.
       // WHY: Prevents stale pulses during IDLE, INQUIRY, or RESOLVED.
       filter(([_, _ssm, _ts, _kb, _strat, engineState]) =>
         engineState === EngineState.THINKING
       ),
-      tap(([_, ssm, taskStructure, kb, strategy, _engineState, relations]) => {
-        this.processPulse(ssm, taskStructure, kb, strategy, relations);
+      tap(([_, ssm, taskStructure, kb, strategy, _engineState, relations, focusNodeId]) => {
+        this.processPulse(ssm, taskStructure, kb, strategy, relations, focusNodeId);
       })
     );
   }
@@ -104,7 +106,8 @@ export class InferenceEngineService {
     taskStructure: ITaskStructure,
     kb: IKnowledgeFragment[],
     strategy: IStrategy,
-    relations: IRelation[] = []
+    relations: IRelation[] = [],
+    solutionFocusNodeId: string | null = null
   ): void {
 
     // ═══════════════════════════════════════════════════════════════
@@ -125,7 +128,7 @@ export class InferenceEngineService {
     // Step 4: Goal Scoring — pick the winner
     // [Ref: MD Sec 4.3 Step 4 / MD Sec 3.2 - Search Operator]
     // ═══════════════════════════════════════════════════════════════
-    const { selectedGoal, rationale } = this.scoreGoals(goals, ssm, kb, strategy);
+    const { selectedGoal, rationale } = this.scoreGoals(goals, ssm, kb, strategy, 0.05, solutionFocusNodeId);
 
     // [Ref: MD Sec 4.3 Step 5] Searchlight — highlight the anchor node
     this.store.dispatch(EngineActions.setActiveGoal({ goal: selectedGoal }));
@@ -273,6 +276,29 @@ export class InferenceEngineService {
         this.pacer.pause();
         return;
       }
+
+      // ═════════════════════════════════════════════════════════════
+      // Solution Focus Evaluation — Global Strategic Principles (S_G)
+      // [Ref: Paper 1 Sec 3.2.3 / Gap 2]
+      //
+      // WHY: The engine should focus on one candidate solution at a time.
+      // After each pulse, evaluate whether the focus should switch to a
+      // stronger candidate. This keeps reasoning coherent rather than
+      // jumping erratically between unrelated branches.
+      // ═════════════════════════════════════════════════════════════
+      const newFocus = evaluateSolutionFocus(solutionFocusNodeId, differential);
+      if (newFocus !== solutionFocusNodeId) {
+        const oldLabel = solutionFocusNodeId
+          ? ssm.nodes.find(n => n.id === solutionFocusNodeId)?.label ?? '(none)'
+          : '(none)';
+        const newLabel = newFocus
+          ? differential.find(d => d.node.id === newFocus)?.node.label ?? newFocus
+          : '(none)';
+        console.info(
+          `[ACE-SSM] Solution focus switched: "${oldLabel}" → "${newLabel}" [Ref: S_G]`
+        );
+        this.store.dispatch(EngineActions.setSolutionFocus({ nodeId: newFocus }));
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -328,9 +354,10 @@ export class InferenceEngineService {
 
   /** Testability wrapper for Search Operator. [Ref: MD Sec 3.2] */
   scoreGoals(
-    goals: IGoal[], ssm: ISSMState, kb: IKnowledgeFragment[], strategy: IStrategy
+    goals: IGoal[], ssm: ISSMState, kb: IKnowledgeFragment[], strategy: IStrategy,
+    unknownPenalty: number = 0.05, solutionFocusNodeId: string | null = null
   ): { selectedGoal: IGoal; rationale: IReasoningStep } {
-    return scoreGoals(goals, ssm, kb, strategy);
+    return scoreGoals(goals, ssm, kb, strategy, unknownPenalty, solutionFocusNodeId);
   }
 
   /** Testability wrapper for Knowledge Operator. [Ref: MD Sec 3.3] */

@@ -33,3 +33,13 @@ export const selectActiveGoal = createSelector(
   selectEngineSlice,
   (slice) => slice.activeGoal
 );
+
+/**
+ * Selects the solution focus node ID — the root of the currently pursued
+ * SSM subgraph (candidate solution).
+ * [Ref: Paper 1 Sec 3.2.3 / Gap 2 - Global Strategic Principles (S_G)]
+ */
+export const selectSolutionFocusNodeId = createSelector(
+  selectEngineSlice,
+  (slice) => slice.solutionFocusNodeId
+);

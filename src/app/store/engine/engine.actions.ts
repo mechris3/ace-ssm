@@ -62,3 +62,13 @@ export const setActiveGoal = createAction(
   '[Engine] Set Active Goal',
   props<{ goal: IGoal | null }>()
 );
+
+/**
+ * [Ref: Paper 1 Sec 3.2.3 / Gap 2 - Global Strategic Principles (S_G)]
+ * Sets the solution focus — the root node of the currently pursued SSM subgraph.
+ * Dispatched by the inference engine after evaluating S_G principles.
+ */
+export const setSolutionFocus = createAction(
+  '[Engine] Set Solution Focus',
+  props<{ nodeId: string | null }>()
+);
