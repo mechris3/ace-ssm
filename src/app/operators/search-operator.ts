@@ -101,17 +101,10 @@ export function scoreGoals(
     // [Ref: MD Sec 10 Invariant 3 - Dual-key KB matching]
     const anchorKeys = new Set([goal.anchorLabel, goal.anchorNodeId]);
 
-    // [Ref: MD Sec 3.3.2 - Cascading Search] mirrors Knowledge Operator
-    // Priority 1: Exact relation match. Priority 2: Broad fallback.
+    // [Ref: MD Sec 3.3.2] Exact relation match only (broad fallback removed).
     let matchingFragments = isReverse
       ? kb.filter(f => anchorKeys.has(f.object) && f.relation === goal.targetRelation)
       : kb.filter(f => anchorKeys.has(f.subject) && f.relation === goal.targetRelation);
-
-    if (matchingFragments.length === 0) {
-      matchingFragments = isReverse
-        ? kb.filter(f => anchorKeys.has(f.object))
-        : kb.filter(f => anchorKeys.has(f.subject));
-    }
 
     // ── Clinical Urgency ──────────────────────────────────────────
     // [Ref: MD Sec 3.2.1] MAX(urgency), not MEAN.

@@ -154,26 +154,14 @@ export class InferenceEngineService {
           : `Linked "${selectedGoal.anchorLabel}" to existing nodes via ${result.edges.map(e => e.relationType).join(', ')}`,
       };
 
-      // [Ref: MD Sec 4.5 - Goal Relation Coverage / Exhaustion]
-      // WHY: If the broad fallback resolved the goal using a different
-      // relation type, the Goal Generator would still see the original
-      // relation as unexplored and regenerate the same goal → infinite loop.
-      // The placeholder edge marks the original relation as exhausted.
-      const patchEdges = [...result.edges];
-      const goalRelationCovered = result.edges.some(e => e.relationType === selectedGoal.targetRelation);
-      if (!goalRelationCovered) {
-        patchEdges.push({
-          id: `edge_${crypto.randomUUID()}`,
-          source: selectedGoal.direction === 'reverse' ? `placeholder_${crypto.randomUUID()}` : selectedGoal.anchorNodeId,
-          target: selectedGoal.direction === 'reverse' ? selectedGoal.anchorNodeId : `placeholder_${crypto.randomUUID()}`,
-          relationType: selectedGoal.targetRelation,
-        });
-      }
-
+      // With exact-match-only KB matching (broad fallback removed), every
+      // PATCH edge has the correct relationType matching the goal's
+      // targetRelation. No goal relation coverage check needed.
       this.store.dispatch(SSMActions.applyPatch({
         nodes: result.nodes,
-        edges: patchEdges,
+        edges: result.edges,
         reasoningStep,
+        cfUpdates: result.cfUpdates,
       }));
 
     } else if (result.type === 'STATUS_UPGRADE_PATCH') {

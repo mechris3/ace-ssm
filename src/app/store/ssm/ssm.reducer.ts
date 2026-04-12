@@ -27,9 +27,17 @@ export const ssmReducer = createReducer(
   // Append new nodes and edges from a Knowledge Operator PATCH result.
   // WHY: Append-only — preserves the full reasoning trail (Invariant 2).
   // ═══════════════════════════════════════════════════════════════════
-  on(SSMActions.applyPatch, (state, { nodes, edges, reasoningStep }) => ({
+  on(SSMActions.applyPatch, (state, { nodes, edges, reasoningStep, cfUpdates }) => ({
     ...state,
-    nodes: [...state.nodes, ...nodes],
+    nodes: [
+      // [Ref: MD Sec 4.6] Apply CF updates from graph merging immutably.
+      // If cfUpdates contains a new CF for an existing node, spread a new
+      // object with the updated cf. Otherwise, pass through unchanged.
+      ...state.nodes.map(n =>
+        cfUpdates?.[n.id] !== undefined ? { ...n, cf: cfUpdates[n.id] } : n
+      ),
+      ...nodes,
+    ],
     edges: [...state.edges, ...edges],
     history: [...state.history, reasoningStep],
   })),

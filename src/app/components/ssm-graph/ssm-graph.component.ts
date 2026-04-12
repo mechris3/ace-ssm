@@ -395,9 +395,14 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         return (y1 + y2) / 2 + (dx / dist) * offset * 0.5;
       });
 
-    // Update node positions
+    // Update node positions — clamp to SVG bounds so nodes never fly off screen
+    const pad = 25; // padding from edges (accounts for node radius + label)
     this.nodeGroup.selectAll<SVGGElement, SimNode>('g.node-group')
-      .attr('transform', (d: SimNode) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+      .attr('transform', (d: SimNode) => {
+        d.x = Math.max(pad, Math.min(this.width - pad, d.x ?? 0));
+        d.y = Math.max(pad, Math.min(this.height - pad, d.y ?? 0));
+        return `translate(${d.x},${d.y})`;
+      });
 
     // Update searchlight ring position to track the active node.
     // Only update if no transition is active (transition handles its own interpolation).

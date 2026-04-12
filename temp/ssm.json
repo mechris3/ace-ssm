@@ -1,6 +1,6 @@
 {
   "id": "neomycin_paper_example",
-  "name": "NEOMYCIN Medical Diagnosis — Benaroch 1998 Fig.3 (4 Findings)",
+  "name": "NEOMYCIN Medical Diagnosis \u2014 Benaroch 1998 Fig.3 (4 Findings)",
   "structure": {
     "entityTypes": [
       "Disease",
@@ -11,15 +11,51 @@
       "Entry_Point"
     ],
     "relations": [
-      { "type": "CAUSES",       "from": "Disease",          "to": "Finding" },
-      { "type": "SUBTYPE_OF",   "from": "Disease",          "to": "Disease" },
-      { "type": "INDUCED_BY",   "from": "Disease",          "to": "Etiologic_Agent" },
-      { "type": "SUBSUMES",     "from": "Finding",          "to": "Finding" },
-      { "type": "CONFIRMED_BY", "from": "Finding",          "to": "Question" },
-      { "type": "SUBTYPE_OF",   "from": "Etiologic_Agent",  "to": "Etiologic_Agent" },
-      { "type": "RESIDES_IN",   "from": "Etiologic_Agent",  "to": "Organ_System" },
-      { "type": "ENTERS_VIA",   "from": "Etiologic_Agent",  "to": "Entry_Point" },
-      { "type": "SUBSUMES",     "from": "Organ_System",     "to": "Organ_System" }
+      {
+        "type": "CAUSES",
+        "from": "Disease",
+        "to": "Finding"
+      },
+      {
+        "type": "SUBTYPE_OF",
+        "from": "Disease",
+        "to": "Disease"
+      },
+      {
+        "type": "INDUCED_BY",
+        "from": "Disease",
+        "to": "Etiologic_Agent"
+      },
+      {
+        "type": "SUBSUMES",
+        "from": "Finding",
+        "to": "Finding"
+      },
+      {
+        "type": "CONFIRMED_BY",
+        "from": "Finding",
+        "to": "Question"
+      },
+      {
+        "type": "SUBTYPE_OF",
+        "from": "Etiologic_Agent",
+        "to": "Etiologic_Agent"
+      },
+      {
+        "type": "RESIDES_IN",
+        "from": "Etiologic_Agent",
+        "to": "Organ_System"
+      },
+      {
+        "type": "ENTERS_VIA",
+        "from": "Etiologic_Agent",
+        "to": "Entry_Point"
+      },
+      {
+        "type": "SUBSUMES",
+        "from": "Organ_System",
+        "to": "Organ_System"
+      }
     ],
     "goalConstraints": [
       {
@@ -37,7 +73,11 @@
       "relation": "CAUSES",
       "object": "Diplopia",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.8, "specificity": 0.8, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.8,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -47,7 +87,11 @@
       "relation": "CAUSES",
       "object": "Headache",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.9, "specificity": 0.5, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.5,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -57,7 +101,11 @@
       "relation": "CAUSES",
       "object": "Nausea",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.9, "specificity": 0.3, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.3,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -67,7 +115,11 @@
       "relation": "CAUSES",
       "object": "Vomiting",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.9, "specificity": 0.3, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.3,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -77,7 +129,11 @@
       "relation": "CAUSES",
       "object": "Stiff_Neck_On_Flexion",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.9, "specificity": 0.7, "inquiryCost": 0.2 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.7,
+        "inquiryCost": 0.2
+      },
       "canBeConfirmed": true
     },
     {
@@ -87,7 +143,11 @@
       "relation": "CAUSES",
       "object": "Diplopia",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.6,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -97,7 +157,11 @@
       "relation": "CAUSES",
       "object": "Headache",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.7, "specificity": 0.4, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.4,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -107,7 +171,11 @@
       "relation": "CAUSES",
       "object": "Headache",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.8, "specificity": 0.5, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.5,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -117,7 +185,11 @@
       "relation": "CAUSES",
       "object": "Nausea",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.8, "specificity": 0.3, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.3,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -127,7 +199,11 @@
       "relation": "CAUSES",
       "object": "Vomiting",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.8, "specificity": 0.3, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.3,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -137,7 +213,11 @@
       "relation": "CAUSES",
       "object": "Weakness",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.6, "specificity": 0.7, "inquiryCost": 0.2 },
+      "metadata": {
+        "urgency": 0.6,
+        "specificity": 0.7,
+        "inquiryCost": 0.2
+      },
       "canBeConfirmed": true
     },
     {
@@ -147,7 +227,11 @@
       "relation": "CAUSES",
       "object": "Diplopia",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.6, "specificity": 0.5, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.6,
+        "specificity": 0.5,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -157,7 +241,11 @@
       "relation": "CAUSES",
       "object": "Diplopia",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.9, "specificity": 0.4, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.4,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -167,7 +255,11 @@
       "relation": "CAUSES",
       "object": "Headache",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.9, "specificity": 0.4, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.4,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -177,7 +269,11 @@
       "relation": "CAUSES",
       "object": "Stiff_Neck_On_Flexion",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.2 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.6,
+        "inquiryCost": 0.2
+      },
       "canBeConfirmed": true
     },
     {
@@ -187,7 +283,11 @@
       "relation": "SUBSUMES",
       "object": "Serious_CNS_Finding",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.8, "specificity": 0.9, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.9,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -197,7 +297,11 @@
       "relation": "SUBSUMES",
       "object": "Focal_Neurological_Finding",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.6, "specificity": 0.7, "inquiryCost": 0.2 },
+      "metadata": {
+        "urgency": 0.6,
+        "specificity": 0.7,
+        "inquiryCost": 0.2
+      },
       "canBeConfirmed": true
     },
     {
@@ -207,7 +311,11 @@
       "relation": "CONFIRMED_BY",
       "object": "Neck_Flexion_Test",
       "objectType": "Question",
-      "metadata": { "urgency": 0.9, "specificity": 0.8, "inquiryCost": 0.2 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.8,
+        "inquiryCost": 0.2
+      },
       "canBeConfirmed": true
     },
     {
@@ -217,7 +325,11 @@
       "relation": "CONFIRMED_BY",
       "object": "Temperature_Check",
       "objectType": "Question",
-      "metadata": { "urgency": 0.7, "specificity": 0.95, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.95,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -227,7 +339,11 @@
       "relation": "CONFIRMED_BY",
       "object": "Motor_Strength_Test",
       "objectType": "Question",
-      "metadata": { "urgency": 0.6, "specificity": 0.8, "inquiryCost": 0.2 },
+      "metadata": {
+        "urgency": 0.6,
+        "specificity": 0.8,
+        "inquiryCost": 0.2
+      },
       "canBeConfirmed": true
     },
     {
@@ -237,7 +353,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Focal_Process",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.6,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": false
     },
     {
@@ -247,7 +367,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Brain_Mass_Lesion",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.8, "specificity": 0.7, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.7,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": false
     },
     {
@@ -257,7 +381,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Meningitis",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.9, "specificity": 0.7, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.7,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": false
     },
     {
@@ -267,7 +395,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Infectious_Disease",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.6,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": false
     },
     {
@@ -277,7 +409,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Chronic_Meningitis",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.4 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.7,
+        "inquiryCost": 0.4
+      },
       "canBeConfirmed": false
     },
     {
@@ -287,7 +423,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Chronic_Meningitis",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.4 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.7,
+        "inquiryCost": 0.4
+      },
       "canBeConfirmed": false
     },
     {
@@ -297,7 +437,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Chronic_Meningitis",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.85, "specificity": 0.6, "inquiryCost": 0.4 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.6,
+        "inquiryCost": 0.4
+      },
       "canBeConfirmed": false
     },
     {
@@ -307,7 +451,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Brain_Mass_Lesion",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.7, "specificity": 0.5, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.5,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -317,7 +465,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Brain_Mass_Lesion",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.7, "specificity": 0.5, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.5,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -327,7 +479,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Brain_Mass_Lesion",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.7, "specificity": 0.5, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.5,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -337,7 +493,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Meningitis",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.6,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": false
     },
     {
@@ -347,7 +507,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Acute_Meningitis",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.95, "specificity": 0.7, "inquiryCost": 0.4 },
+      "metadata": {
+        "urgency": 0.95,
+        "specificity": 0.7,
+        "inquiryCost": 0.4
+      },
       "canBeConfirmed": false
     },
     {
@@ -357,7 +521,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Acute_Meningitis",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.6, "specificity": 0.5, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.6,
+        "specificity": 0.5,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": false
     },
     {
@@ -367,7 +535,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Gram_Neg_Rod",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.8, "specificity": 0.5, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.5,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -377,7 +549,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Gram_Pos_Rod",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.8, "specificity": 0.5, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.5,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -387,7 +563,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Gram_Neg_Rod",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.8, "specificity": 0.6, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.6,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -397,7 +577,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Gram_Neg_Rod",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.8, "specificity": 0.6, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.6,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -407,7 +591,11 @@
       "relation": "INDUCED_BY",
       "object": "Bacteria",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.6,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -417,7 +605,11 @@
       "relation": "RESIDES_IN",
       "object": "Meninges",
       "objectType": "Organ_System",
-      "metadata": { "urgency": 0.9, "specificity": 0.7, "inquiryCost": 0.4 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.7,
+        "inquiryCost": 0.4
+      },
       "canBeConfirmed": false
     },
     {
@@ -427,7 +619,11 @@
       "relation": "ENTERS_VIA",
       "object": "Blood_Brain_Barrier",
       "objectType": "Entry_Point",
-      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.6,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -437,7 +633,11 @@
       "relation": "SUBSUMES",
       "object": "Central_Nervous_System",
       "objectType": "Organ_System",
-      "metadata": { "urgency": 0.5, "specificity": 0.5, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.5,
+        "specificity": 0.5,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": false
     },
     {
@@ -447,7 +647,11 @@
       "relation": "CONFIRMED_BY",
       "object": "TB_Exposure_Test",
       "objectType": "Question",
-      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.8,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": true
     },
     {
@@ -457,7 +661,11 @@
       "relation": "CONFIRMED_BY",
       "object": "Recent_Pneumonia_Test",
       "objectType": "Question",
-      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.7,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": true
     },
     {
@@ -467,7 +675,11 @@
       "relation": "CONFIRMED_BY",
       "object": "Travel_San_Joaquin_Valley_Test",
       "objectType": "Question",
-      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.8,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": true
     },
     {
@@ -477,7 +689,11 @@
       "relation": "CONFIRMED_BY",
       "object": "Weakness_Test",
       "objectType": "Question",
-      "metadata": { "urgency": 0.6, "specificity": 0.7, "inquiryCost": 0.2 },
+      "metadata": {
+        "urgency": 0.6,
+        "specificity": 0.7,
+        "inquiryCost": 0.2
+      },
       "canBeConfirmed": true
     },
     {
@@ -487,7 +703,11 @@
       "relation": "CONFIRMED_BY",
       "object": "Temperature_Check",
       "objectType": "Question",
-      "metadata": { "urgency": 0.7, "specificity": 0.9, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.9,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     },
     {
@@ -497,7 +717,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Fungus",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.6,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -507,7 +731,11 @@
       "relation": "SUBTYPE_OF",
       "object": "Fungus",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.6,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -517,7 +745,11 @@
       "relation": "INDUCED_BY",
       "object": "Fungus",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.85, "specificity": 0.6, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.6,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -527,7 +759,11 @@
       "relation": "INDUCED_BY",
       "object": "Bacteria",
       "objectType": "Etiologic_Agent",
-      "metadata": { "urgency": 0.9, "specificity": 0.5, "inquiryCost": 0.5 },
+      "metadata": {
+        "urgency": 0.9,
+        "specificity": 0.5,
+        "inquiryCost": 0.5
+      },
       "canBeConfirmed": false
     },
     {
@@ -537,7 +773,11 @@
       "relation": "CAUSES",
       "object": "Tuberculosis_Exposure",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.8,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": true
     },
     {
@@ -547,7 +787,11 @@
       "relation": "CAUSES",
       "object": "Recent_Pneumonia",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.7,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": true
     },
     {
@@ -557,7 +801,11 @@
       "relation": "CAUSES",
       "object": "Travel_To_San_Joaquin_Valley",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.85,
+        "specificity": 0.8,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": true
     },
     {
@@ -567,7 +815,11 @@
       "relation": "CAUSES",
       "object": "Fever",
       "objectType": "Finding",
-      "metadata": { "urgency": 0.7, "specificity": 0.9, "inquiryCost": 0.1 },
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.9,
+        "inquiryCost": 0.1
+      },
       "canBeConfirmed": true
     }
   ],
@@ -621,8 +873,15 @@
     },
     "pacerDelay": 1500,
     "goalOrdering": {
-      "Disease": ["CAUSES", "SUBTYPE_OF", "INDUCED_BY"],
-      "Finding": ["SUBSUMES", "CONFIRMED_BY"]
+      "Disease": [
+        "CAUSES",
+        "SUBTYPE_OF",
+        "INDUCED_BY"
+      ],
+      "Finding": [
+        "SUBSUMES",
+        "CONFIRMED_BY"
+      ]
     }
   }
 }

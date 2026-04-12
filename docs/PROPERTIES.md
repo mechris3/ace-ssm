@@ -321,7 +321,7 @@ The engine treats the KB as ground truth: a missing match means the relation doe
 
 **Statement:** *For any* Knowledge Operator PATCH where a matching KB fragment's target already exists in the SSM (graph merging), the existing node's CF SHALL be updated using the conjunctive combination formula: `cf_combined = cf_old + cf_new × (1 − cf_old)`, where `cf_new` is the fragment's `metadata.specificity` (default 0.5). The combined CF SHALL always be in [0.0, 1.0] and SHALL be monotonically non-decreasing (adding evidence never reduces certainty). For newly spawned HYPOTHESIS nodes, `cf` SHALL equal `fragment.metadata.specificity` (default 0.5). For CONFIRMED seed nodes, `cf` SHALL default to 1.0. [Ref: MD Sec 2.3.2, Paper 1 Sec 3.2.2, Gap 4]
 
-**Enforced by:** `src/app/operators/knowledge-operator.ts` — graph merging logic in `resolveGoal()`; `src/app/store/ssm/ssm.reducer.ts` — `confirmFinding` sets `cf: 1.0`
+**Enforced by:** `src/app/operators/knowledge-operator.ts` — pure CF computation in `resolveGoal()` returns `cfUpdates` map on PATCH result; `src/app/store/ssm/ssm.reducer.ts` — `applyPatch` handler applies `cfUpdates` immutably; `src/app/store/ssm/ssm.reducer.ts` — `confirmFinding` sets `cf: 1.0`
 
 **Tested in:** `src/app/operators/knowledge-operator.spec.ts`
 

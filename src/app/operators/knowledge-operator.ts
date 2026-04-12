@@ -75,12 +75,15 @@ export function resolveGoal(
     ? kb.filter(f => anchorKeys.has(f.object) && f.relation === goal.targetRelation)
     : kb.filter(f => anchorKeys.has(f.subject) && f.relation === goal.targetRelation);
 
-  // Priority 2: Broad fallback — any relation for this anchor
-  if (matches.length === 0) {
-    matches = isReverse
-      ? kb.filter(f => anchorKeys.has(f.object))
-      : kb.filter(f => anchorKeys.has(f.subject));
-  }
+  // NOTE: The broad fallback (Priority 2) that previously matched any
+  // fragment for the anchor regardless of relation type has been removed.
+  // With rich ontologies that have multiple relation types per entity,
+  // the fallback caused: (a) edges with wrong relation types, (b) the
+  // Goal Generator re-detecting the original relation as unsatisfied
+  // (because the edge had a different relationType), and (c) duplicate
+  // edges and repeated inquiry questions. Exact-match-only is cleaner —
+  // if no fragments match the specific relation, NO_MATCH is returned
+  // and a placeholder edge marks the goal as explored.
 
   if (matches.length === 0) {
     return { type: 'NO_MATCH', goal };
@@ -106,6 +109,9 @@ export function resolveGoal(
 
   const nodes: ISSMNode[] = [];
   const edges: ISSMEdge[] = [];
+  // [Ref: MD Sec 4.6 / Paper 1 Sec 3.2.2] Track CF updates for graph-merged
+  // nodes in a pure map — never mutate the existing store objects.
+  const cfUpdates = new Map<string, number>();
 
   for (const f of matches) {
     const targetLabel = isReverse ? f.subject : f.object;
@@ -116,10 +122,10 @@ export function resolveGoal(
       // [Ref: Paper 1 Sec 3.2.2 / Gap 4] Combine CFs using conjunctive
       // formula: cf_combined = cf1 + cf2 * (1 - cf1). This increases
       // confidence when multiple independent fragments support the same node.
-      if (existing.cf !== undefined) {
-        const newCf = f.metadata.specificity ?? 0.5;
-        existing.cf = existing.cf + newCf * (1 - existing.cf);
-      }
+      // Pure: we accumulate into cfUpdates, not into the existing node.
+      const currentCf = cfUpdates.get(existing.id) ?? existing.cf ?? 0.5;
+      const newCf = f.metadata.specificity ?? 0.5;
+      cfUpdates.set(existing.id, currentCf + newCf * (1 - currentCf));
       edges.push({
         id: `edge_${crypto.randomUUID()}`,
         source: isReverse ? existing.id : goal.anchorNodeId,
@@ -133,8 +139,13 @@ export function resolveGoal(
         label: isReverse ? f.subject : f.object,
         type: isReverse ? f.subjectType : f.objectType,
         status: 'HYPOTHESIS' as NodeStatus,
-        // [Ref: MD Sec 5.1] canBeConfirmed defaults to true
-        canBeConfirmed: f.canBeConfirmed ?? true,
+        // [Ref: MD Sec 5.1] canBeConfirmed: In forward direction, inherit
+        // from the fragment (defaults to true). In reverse direction (abductive),
+        // the spawned node is the "explaining" entity (e.g., a Disease), which
+        // should NOT be directly confirmable — it gets confirmed indirectly
+        // via STATUS_UPGRADE when its evidence is confirmed. So reverse-spawned
+        // nodes default to false unless the fragment explicitly opts in.
+        canBeConfirmed: isReverse ? false : (f.canBeConfirmed ?? true),
         // [Ref: Paper 1 Sec 3.2.2 / Gap 4] CF derived from KB fragment.
         // Uses specificity as the initial certainty — how diagnostic this
         // fragment is for the spawned concept. Defaults to 0.5 if absent.
@@ -154,5 +165,10 @@ export function resolveGoal(
     return { type: 'NO_MATCH', goal };
   }
 
-  return { type: 'PATCH', nodes, edges };
+  return {
+    type: 'PATCH',
+    nodes,
+    edges,
+    cfUpdates: cfUpdates.size > 0 ? Object.fromEntries(cfUpdates) : undefined,
+  };
 }

@@ -22,7 +22,7 @@ import { IReasoningStep } from '../../models/strategy.model';
  */
 export const applyPatch = createAction(
   '[SSM] Apply Patch',
-  props<{ nodes: ISSMNode[]; edges: ISSMEdge[]; reasoningStep: IReasoningStep }>()
+  props<{ nodes: ISSMNode[]; edges: ISSMEdge[]; reasoningStep: IReasoningStep; cfUpdates?: Record<string, number> }>()
 );
 
 /**

@@ -77,6 +77,15 @@ export interface IPatchResult {
 
   /** New edges connecting the anchor node to each new HYPOTHESIS node. */
   edges: ISSMEdge[];
+
+  /**
+   * CF updates for existing nodes affected by graph merging.
+   * Maps node ID → new combined CF value.
+   * [Ref: MD Sec 4.6 / Paper 1 Sec 3.2.2 / Gap 4]
+   * The reducer applies these immutably — the Knowledge Operator never
+   * mutates store objects.
+   */
+  cfUpdates?: Record<string, number>;
 }
 
 /**

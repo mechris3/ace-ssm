@@ -71,7 +71,7 @@ A flat array of fragments. Each fragment encodes one directed relationship betwe
 | `object` | Domain label of the target concept (e.g., "Bacterial Meningitis") |
 | `objectType` | Entity type of the target |
 | `metadata` | Heuristic metadata for scoring |
-| `canBeConfirmed` | (Optional) When `false`, HYPOTHESIS nodes spawned from this fragment will NOT require user confirmation. Defaults to `true` if omitted — all hypotheses are confirmable unless explicitly opted out |
+| `canBeConfirmed` | (Optional) Controls whether HYPOTHESIS nodes spawned from this fragment require user confirmation. For **forward-spawned** nodes (object side), defaults to `true` — inferred findings are confirmable unless opted out. For **reverse-spawned** nodes (subject side, abductive reasoning), defaults to `false` — explanatory entities like diseases are confirmed indirectly via STATUS_UPGRADE. See Section 5.1 for details. |
 
 **Fragment Metadata** (all values bounded to [0.0, 1.0]):
 
@@ -398,7 +398,9 @@ To prevent this, after every PATCH dispatch, the engine checks whether any of th
 
 When the Knowledge Operator finds KB fragments whose target node already exists in the SSM, it creates an edge to the existing node instead of spawning a duplicate. This merges subgraphs — for example, if `Subarachnoid_Hemorrhage` already exists from one reasoning chain, and a second chain discovers it via a different finding, the engine draws a new edge to the existing node rather than creating a second copy.
 
-A PATCH result can therefore contain a mix of new nodes (for genuinely new concepts) and edges-only (for connections to existing nodes).
+**CF combination:** When graph merging occurs, the Knowledge Operator computes updated certainty factors using the conjunctive formula `cf_combined = cf_old + cf_new × (1 − cf_old)`. These updates are returned as a `cfUpdates` map (node ID → new CF) on the PATCH result — the operator never mutates store objects. The orchestrator passes `cfUpdates` through the `applyPatch` action payload, and the SSM reducer applies them immutably by spreading new node objects with the updated `cf` values.
+
+A PATCH result can therefore contain a mix of new nodes (for genuinely new concepts), edges-only (for connections to existing nodes), and CF updates (for existing nodes whose certainty increased due to additional evidence).
 
 ### 4.7 Stall Detection (Loop Break)
 
@@ -526,9 +528,15 @@ The inquiry modal triggers when ANY of the following are true after a pulse:
 
 The first confirmable node found is presented to the user. The engine transitions to INQUIRY state, the pacer is paused, and the Searchlight parks on the finding until the user responds.
 
-The `canBeConfirmed` flag defaults to `true` for all HYPOTHESIS nodes spawned by the Knowledge Operator. This means the engine pauses for user confirmation on every new hypothesis unless the KB fragment explicitly opts out with `canBeConfirmed: false`. The flag can also originate from:
+The `canBeConfirmed` flag is direction-dependent:
+- **Forward-spawned nodes** (the object side of a KB fragment — e.g., a Finding discovered because a Disease CAUSES it): inherit `canBeConfirmed` from the fragment, defaulting to `true` if omitted. This means inferred findings pause the engine for user confirmation unless the fragment explicitly opts out.
+- **Reverse-spawned nodes** (the subject side, via abductive reasoning — e.g., a Disease discovered because it CAUSES a known Finding): default to `false`. Explanatory entities like diseases are not directly observable; they are confirmed indirectly via STATUS_UPGRADE when their evidence is confirmed. A fragment can explicitly set `canBeConfirmed: true` to override this for special cases.
+
+This directional rule is domain-independent and consistent with the paper's G_L2 constraint: "every SSM node depicting an **inferred abnormal finding** must be verified with the patient." The paper's inquiry system only asks about findings (observable symptoms), never about diseases (explanatory hypotheses). [Ref: Paper 1 Sec 3.2.1 G_L2]
+
+The flag can also originate from:
 - **Seed nodes:** Set directly in the domain JSON on SSM nodes
-- **KB fragments:** When a fragment has `canBeConfirmed: false`, the Knowledge Operator propagates the opt-out to the spawned node
+- **KB fragments:** The Knowledge Operator propagates the fragment's `canBeConfirmed` value to the spawned node (subject to the directional rule above)
 
 The inquiry does NOT trigger for KB relationship validation. The KB is treated as ground truth.
 
@@ -717,4 +725,4 @@ The bundled fixture demonstrates a medical diagnosis domain:
 7. **Clock-driven inference.** The Pacer is the sole timing driver. The engine never calls operators directly — it only reacts to pulse emissions.
 8. **Status-based scoring penalties.** REFUTED anchors receive a 99% penalty (0.01×), UNKNOWN anchors receive a 95% penalty (0.05×), and SKIPPED anchors lose their urgency bonus. These penalties shape the engine's exploration priority based on user feedback.
 9. **Confirm before explore.** STATUS_UPGRADE goals score 200 × parsimony weight (vs. 50 for EXPAND parsimony), strongly preferring promotion when conditions are met.
-10. **Finding confirmation is user-driven.** The inquiry modal only triggers for HYPOTHESIS nodes with `canBeConfirmed: true`. It asks the user to confirm an observation, not to validate KB logic.
+10. **Finding confirmation is user-driven and direction-aware.** The inquiry modal only triggers for HYPOTHESIS nodes with `canBeConfirmed: true`. Forward-spawned nodes (findings, symptoms) default to confirmable; reverse-spawned nodes (diseases, explanations) default to non-confirmable. This ensures the engine asks about observable findings, not explanatory hypotheses. [Ref: Paper 1 G_L2]
