@@ -188,5 +188,11 @@ export function computeDifferential(
       totalSeedCount,
       isComplete: coveredSeedCount >= totalSeedCount,
     };
-  }).sort((a, b) => b.coveredSeedCount - a.coveredSeedCount);
+  }).sort((a, b) => {
+    // [Ref: Paper 1 Sec 3.2.3 / Gap 4] Sort by coverage first, then by CF (strength)
+    if (b.coveredSeedCount !== a.coveredSeedCount) {
+      return b.coveredSeedCount - a.coveredSeedCount;
+    }
+    return (b.node.cf ?? 0) - (a.node.cf ?? 0);
+  });
 }

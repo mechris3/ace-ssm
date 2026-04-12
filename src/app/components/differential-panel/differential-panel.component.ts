@@ -43,7 +43,7 @@ import { IDifferentialEntry } from '../../store/ssm/ssm.selectors';
                [style.width.%]="entry.totalSeedCount > 0 ? (entry.coveredSeedCount / entry.totalSeedCount) * 100 : 0">
           </div>
         </div>
-        <span class="diff-status">{{ entry.coveredSeedCount }}/{{ entry.totalSeedCount }}</span>
+        <span class="diff-status">{{ entry.coveredSeedCount }}/{{ entry.totalSeedCount }} · CF {{ (entry.node.cf ?? 0) | number:'1.2-2' }}</span>
         <span class="diff-badge" [class.badge-winner]="entry.isComplete" [class.badge-candidate]="!entry.isComplete">
           {{ entry.isComplete ? 'WINNER' : 'candidate' }}
         </span>

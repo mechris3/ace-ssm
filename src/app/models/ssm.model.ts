@@ -66,6 +66,17 @@ export interface ISSMNode {
   status: NodeStatus;
 
   /**
+   * Certainty factor (0.0 to 1.0) measuring the degree of belief in this node.
+   * [Ref: Paper 1 Sec 3.2.2 / Gap Analysis Gap 4]
+   *
+   * For CONFIRMED seed nodes: defaults to 1.0 (observed fact).
+   * For HYPOTHESIS nodes: derived from KB fragment metadata at spawn time.
+   * For graph-merged nodes: combined using conjunctive formula cf1+cf2*(1−cf1).
+   * Used by the diagnostic differential to rank candidates by "strength."
+   */
+  cf?: number;
+
+  /**
    * Whether this node can be confirmed by the user via the Inquiry Modal.
    *
    * When `true` and the node is in HYPOTHESIZED status, the Searchlight landing

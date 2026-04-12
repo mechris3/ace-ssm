@@ -202,7 +202,7 @@ export class FacadeService {
   seedFinding(label: string, type: string): void {
     const id = `node_${crypto.randomUUID()}`;
     this.store.dispatch(SSMActions.applyPatch({
-      nodes: [{ id, label, type, status: 'CONFIRMED' as const }],
+      nodes: [{ id, label, type, status: 'CONFIRMED' as const, cf: 1.0 }],
       edges: [],
       reasoningStep: {
         timestamp: Date.now(),

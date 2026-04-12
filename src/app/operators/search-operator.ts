@@ -142,7 +142,15 @@ export function scoreGoals(
       { label: 'Inquiry Cost', impact: -costScore, explanation: `MEAN(inquiryCost) from KB fragments.` },
     );
 
-    const rawScore = urgencyScore + parsimonyScore - costScore;
+    // [Ref: Paper 1 Sec 3.2.2 / Gap 4] CF bonus: goals anchored on
+    // high-certainty nodes score higher. This ensures the engine prefers
+    // to expand well-supported hypotheses over uncertain ones.
+    const cfBonus = (anchor?.cf ?? 0.5) * 20 * strategy.weights.parsimony;
+    factors.push(
+      { label: 'Certainty', impact: cfBonus, explanation: `Anchor "${anchor?.label}" has CF=${(anchor?.cf ?? 0.5).toFixed(2)}.` },
+    );
+
+    const rawScore = urgencyScore + parsimonyScore + cfBonus - costScore;
 
     // ═════════════════════════════════════════════════════════════════
     // Anchor Status Penalties

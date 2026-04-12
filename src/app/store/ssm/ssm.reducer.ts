@@ -103,7 +103,7 @@ export const ssmReducer = createReducer(
   on(SSMActions.confirmFinding, (state, { nodeId, reasoningStep }) => ({
     ...state,
     nodes: state.nodes.map(n =>
-      n.id === nodeId ? { ...n, status: 'CONFIRMED' as NodeStatus } : n
+      n.id === nodeId ? { ...n, status: 'CONFIRMED' as NodeStatus, cf: 1.0 } : n
     ),
     history: [...state.history, reasoningStep],
     waitingForUser: false,

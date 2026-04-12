@@ -113,6 +113,13 @@ export function resolveGoal(
 
     if (existing) {
       // [Ref: MD Sec 4.6] Target exists → edge only (graph merging)
+      // [Ref: Paper 1 Sec 3.2.2 / Gap 4] Combine CFs using conjunctive
+      // formula: cf_combined = cf1 + cf2 * (1 - cf1). This increases
+      // confidence when multiple independent fragments support the same node.
+      if (existing.cf !== undefined) {
+        const newCf = f.metadata.specificity ?? 0.5;
+        existing.cf = existing.cf + newCf * (1 - existing.cf);
+      }
       edges.push({
         id: `edge_${crypto.randomUUID()}`,
         source: isReverse ? existing.id : goal.anchorNodeId,
@@ -126,10 +133,12 @@ export function resolveGoal(
         label: isReverse ? f.subject : f.object,
         type: isReverse ? f.subjectType : f.objectType,
         status: 'HYPOTHESIS' as NodeStatus,
-        // [Ref: MD Sec 5.1] canBeConfirmed defaults to true so the engine
-        // pauses for user confirmation on every new hypothesis unless the
-        // KB fragment explicitly opts out.
+        // [Ref: MD Sec 5.1] canBeConfirmed defaults to true
         canBeConfirmed: f.canBeConfirmed ?? true,
+        // [Ref: Paper 1 Sec 3.2.2 / Gap 4] CF derived from KB fragment.
+        // Uses specificity as the initial certainty — how diagnostic this
+        // fragment is for the spawned concept. Defaults to 0.5 if absent.
+        cf: f.metadata.specificity ?? 0.5,
       };
       nodes.push(newNode);
       edges.push({

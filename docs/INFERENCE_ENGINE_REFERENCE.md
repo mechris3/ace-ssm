@@ -76,7 +76,7 @@ A flat array of fragments. Each fragment encodes one directed relationship betwe
 | Field | Description | Aggregation in Scoring |
 |-------|-------------|----------------------|
 | `urgency` | Clinical risk / priority (0 = none, 1 = life-threatening) | MAX across matching fragments |
-| `specificity` | Diagnostic discriminating power (0 = non-specific, 1 = pathognomonic) | Reserved for future use |
+| `specificity` | Diagnostic discriminating power (0 = non-specific, 1 = pathognomonic) | Used as initial CF for spawned HYPOTHESIS nodes |
 | `inquiryCost` | Cost of asking the user about this relationship (0 = trivial, 1 = invasive) | MEAN across matching fragments |
 
 **Validation:** On load, all metadata fields must be numbers in [0, 1]. If any field is out of range, the entire KB load is rejected.
@@ -107,6 +107,7 @@ The evolving graph that represents the engine's current reasoning state.
 | `type` | Entity type from the Task Structure |
 | `status` | Current lifecycle status |
 | `canBeConfirmed` | (Optional) When `true` and status is `HYPOTHESIS`, the Searchlight landing on this node triggers a finding-confirmation inquiry |
+| `cf` | (Optional) Certainty factor (0.0 to 1.0). Seed nodes default to 1.0. HYPOTHESIS nodes derive CF from KB fragment `specificity`. Graph-merged nodes combine CFs using cf1+cf2*(1−cf1). Used by the diagnostic differential for "strongest candidate" ranking and by the Search Operator as a scoring bonus. |
 
 #### 2.3.3 Edge Fields
 
@@ -236,12 +237,14 @@ For each HYPOTHESIS node:
 ```
 rawScore = (MAX(urgency) × 100 × weights.urgency)
          + (parsimony_bonus × weights.parsimony)
+         + (anchor_cf × 20 × weights.parsimony)
          - (MEAN(inquiryCost) × 100 × weights.costAversion)
 ```
 
 Where:
 - **MAX(urgency):** The highest urgency value across all KB fragments matching this goal's anchor (by label or node ID) + target relation. The Search Operator uses the same cascading match as the Knowledge Operator (exact relation first, then broad fallback). Uses MAX (not MEAN) because the engine must pivot to the most dangerous possibility immediately.
 - **Parsimony bonus:** 50 points (before weight) if the SSM already contains at least one node of the target entity type. Additionally, for reverse goals, a multi-evidence bonus of 30 points per additional CONFIRMED node that the candidate explains is added. This prioritizes Conditions that unify multiple confirmed findings (e.g., a Condition explaining both Meningism and Thunderclap_Headache scores higher than one explaining only Meningism).
+- **Certainty bonus:** `anchor.cf × 20 × weights.parsimony`. Goals anchored on high-certainty nodes score higher, ensuring the engine prefers to expand well-supported hypotheses over uncertain ones.
 - **MEAN(inquiryCost):** Average inquiry cost across matching KB fragments. Uses MEAN (not MAX) because cost is an expected-value calculation.
 
 #### 3.2.2 Scoring Formula for STATUS_UPGRADE Goals
@@ -298,7 +301,7 @@ This prevents the engine from stalling when the KB uses a different but logicall
 
 Anchor matching uses dual keys: both the goal's `anchorLabel` and `anchorNodeId` are checked against the fragment's subject/object fields.
 
-**Deduplication and Graph Merging:** After matching, the Knowledge Operator checks each fragment's target against existing SSM nodes. If the target already exists, the operator creates an edge to the existing node (graph merging) instead of spawning a duplicate. If the target is new, a HYPOTHESIS node is spawned. A PATCH result can therefore contain a mix of new nodes and edges to existing nodes.
+**Deduplication and Graph Merging:** After matching, the Knowledge Operator checks each fragment's target against existing SSM nodes. If the target already exists, the operator creates an edge to the existing node (graph merging) and combines CFs using the conjunctive formula `cf_combined = cf1 + cf2 * (1 - cf1)`. If the target is new, a HYPOTHESIS node is spawned with `cf` set from the fragment's `specificity` metadata. A PATCH result can therefore contain a mix of new nodes and edges to existing nodes.
 
 **If matches found → PATCH result (with graph merging):**
 - For each matching fragment, the operator checks if the target node already exists in the SSM.
@@ -392,6 +395,20 @@ A PATCH result can therefore contain a mix of new nodes (for genuinely new conce
 ### 4.7 Stall Detection (Loop Break)
 
 The engine tracks consecutive pulses that produce zero new nodes. If 10 consecutive pulses fire without growing the graph (only placeholder edges or edges to existing nodes), the engine forces a transition to RESOLVED, pauses the pacer, and logs a `Logic exhaustion` warning to the console. The stall counter resets whenever a pulse spawns at least one new node.
+
+### 4.8 Diagnostic Differential (G_g Termination)
+
+[Ref: Paper 1 Sec 3.2.1 / Paper 2 Sec 3.1 g3-g4]
+
+After each pulse (and after stall detection), the engine computes the diagnostic differential — the set of competing candidate solutions. A candidate is a node of the "root" entity type (the type that appears as `from` in Task Structure relations but never as `to` — e.g., `Condition`).
+
+For each candidate, the engine traces edges transitively to count how many seed findings (leaf-type CONFIRMED nodes) it covers. Candidates are ranked by:
+1. Coverage count (how many seed findings are reachable)
+2. Certainty factor (CF) as tiebreaker
+
+If any candidate achieves **complete coverage** (covers ALL seed findings), the engine declares it the winner and transitions to RESOLVED. This implements the paper's global goal constraint G_g: "the root of an SSM sub-graph depicting the disease process sought must cover every abnormal finding known to be present."
+
+The differential is displayed in the UI via the Differential Panel component, showing each candidate's label, coverage bar, CF value, and WINNER/candidate badge.
 
 ---
 
