@@ -30,6 +30,7 @@ import { resolveGoal } from '../operators/knowledge-operator';
 
 import { selectSSMState } from '../store/ssm/ssm.selectors';
 import { selectTaskStructure } from '../store/task-structure/task-structure.selectors';
+import { selectRelations } from '../store/task-structure/task-structure.selectors';
 import { selectAllFragments } from '../store/knowledge-base/knowledge-base.selectors';
 import { selectStrategy } from '../store/strategy/strategy.selectors';
 import { selectEngineState } from '../store/engine/engine.selectors';
@@ -39,6 +40,8 @@ import { ISSMNode, ISSMEdge, ISSMState, IGoal } from '../models/ssm.model';
 import { IReasoningStep, IStrategy } from '../models/strategy.model';
 import { IKnowledgeFragment } from '../models/knowledge-base.model';
 import { ITaskStructure } from '../models/task-structure.model';
+import { IRelation } from '../models/task-structure.model';
+import { computeDifferential } from '../store/ssm/ssm.selectors';
 
 import * as SSMActions from '../store/ssm/ssm.actions';
 import * as EngineActions from '../store/engine/engine.actions';
@@ -77,15 +80,16 @@ export class InferenceEngineService {
         this.store.select(selectTaskStructure),
         this.store.select(selectAllFragments),
         this.store.select(selectStrategy),
-        this.store.select(selectEngineState)
+        this.store.select(selectEngineState),
+        this.store.select(selectRelations)
       ),
       // [Ref: MD Sec 4.3 Step 2] Gate check — only THINKING state.
       // WHY: Prevents stale pulses during IDLE, INQUIRY, or RESOLVED.
       filter(([_, _ssm, _ts, _kb, _strat, engineState]) =>
         engineState === EngineState.THINKING
       ),
-      tap(([_, ssm, taskStructure, kb, strategy]) => {
-        this.processPulse(ssm, taskStructure, kb, strategy);
+      tap(([_, ssm, taskStructure, kb, strategy, _engineState, relations]) => {
+        this.processPulse(ssm, taskStructure, kb, strategy, relations);
       })
     );
   }
@@ -99,7 +103,8 @@ export class InferenceEngineService {
     ssm: ISSMState,
     taskStructure: ITaskStructure,
     kb: IKnowledgeFragment[],
-    strategy: IStrategy
+    strategy: IStrategy,
+    relations: IRelation[] = []
   ): void {
 
     // ═══════════════════════════════════════════════════════════════
@@ -242,6 +247,30 @@ export class InferenceEngineService {
         this.store.dispatch(EngineActions.engineResolved());
         this.pacer.pause();
         this.stallCount = 0;
+        return;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Diagnostic Differential — Global Goal Constraint (G_g)
+    // [Ref: Paper Sec 3.2.1 / Gap Analysis Gap 1]
+    //
+    // WHY: The paper defines G_g as the termination condition: the SSM
+    // is "solved" when a candidate Condition covers ALL seed findings.
+    // If any candidate in the differential achieves complete coverage,
+    // the engine can declare victory and transition to RESOLVED.
+    // ═══════════════════════════════════════════════════════════════
+    if (relations.length > 0) {
+      const differential = computeDifferential(ssm.nodes, ssm.edges, relations);
+      const winner = differential.find(d => d.isComplete);
+      if (winner) {
+        console.info(
+          `[ACE-SSM] Diagnostic differential resolved: "${winner.node.label}" ` +
+          `covers all ${winner.totalSeedCount} seed findings. [Ref: Paper G_g]`
+        );
+        this.store.dispatch(EngineActions.setActiveGoal({ goal: null }));
+        this.store.dispatch(EngineActions.engineResolved());
+        this.pacer.pause();
         return;
       }
     }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Observable } from 'rxjs';
 import { Store } from '@ngrx/store';
@@ -10,10 +10,17 @@ import { SSMGraphComponent } from '../ssm-graph/ssm-graph.component';
 import { NodeInspectorComponent } from '../node-inspector/node-inspector.component';
 import { AuditTrailComponent } from '../audit-trail/audit-trail.component';
 import { InquiryOverlayComponent, FindingResolution } from '../inquiry-overlay/inquiry-overlay.component';
-import { ISSMNode } from '../../models/ssm.model';
+import { DifferentialPanelComponent } from '../differential-panel/differential-panel.component';
+import { ISSMNode, ISSMEdge } from '../../models/ssm.model';
 import { IReasoningStep } from '../../models/strategy.model';
+import { IRelation } from '../../models/task-structure.model';
+import { IKnowledgeFragment } from '../../models/knowledge-base.model';
 import { selectRecentHistory, selectRenderedHistory, selectPendingFindingNode } from '../../store/ssm/ssm.selectors';
+import { selectRelations } from '../../store/task-structure/task-structure.selectors';
+import { selectAllFragments } from '../../store/knowledge-base/knowledge-base.selectors';
 import { first } from 'rxjs/operators';
+
+export type ViewMode = 'ssm' | 'taskStructure' | 'knowledgeBase';
 
 @Component({
   selector: 'app-dashboard',
@@ -27,6 +34,7 @@ import { first } from 'rxjs/operators';
     NodeInspectorComponent,
     AuditTrailComponent,
     InquiryOverlayComponent,
+    DifferentialPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './dashboard.component.html',
@@ -39,13 +47,75 @@ export class DashboardComponent {
   renderedSteps$: Observable<IReasoningStep[]> = this.store.select(selectRenderedHistory);
   recentSteps$: Observable<IReasoningStep[]> = this.store.select(selectRecentHistory);
   pendingFindingNode$: Observable<ISSMNode | null> = this.store.select(selectPendingFindingNode);
+  relations$: Observable<IRelation[]> = this.store.select(selectRelations);
+  fragments$: Observable<IKnowledgeFragment[]> = this.store.select(selectAllFragments);
   resetOnLoad = true;
+
+  /** Current view mode for the graph workspace. */
+  readonly viewMode = signal<ViewMode>('ssm');
 
   /** Node ID to highlight in the graph (set when user clicks an Audit Trail step). */
   highlightNodeId: string | null = null;
 
   /** Node ID to scroll to in the Audit Trail (set when user clicks a graph node). */
   scrollToNodeId: string | null = null;
+
+  /** Transform Task Structure entity types + relations into graph nodes/edges. */
+  taskStructureToGraph(entityTypes: string[], relations: IRelation[]): { nodes: ISSMNode[]; edges: ISSMEdge[] } {
+    const nodes: ISSMNode[] = entityTypes.map(t => ({
+      id: `ts_${t}`,
+      label: t,
+      type: t,
+      status: 'CONFIRMED' as const,
+    }));
+    const edges: ISSMEdge[] = relations.map((r, i) => ({
+      id: `ts_edge_${i}`,
+      source: `ts_${r.from}`,
+      target: `ts_${r.to}`,
+      relationType: r.type,
+    }));
+    return { nodes, edges };
+  }
+
+  /** Transform KB fragments into graph nodes/edges. */
+  kbToGraph(fragments: IKnowledgeFragment[]): { nodes: ISSMNode[]; edges: ISSMEdge[] } {
+    const nodeMap = new Map<string, ISSMNode>();
+    const edges: ISSMEdge[] = [];
+
+    for (const f of fragments) {
+      if (!nodeMap.has(f.subject)) {
+        nodeMap.set(f.subject, {
+          id: `kb_${f.subject}`,
+          label: f.subject,
+          type: f.subjectType,
+          status: 'CONFIRMED' as const,
+        });
+      }
+      if (!nodeMap.has(f.object)) {
+        nodeMap.set(f.object, {
+          id: `kb_${f.object}`,
+          label: f.object,
+          type: f.objectType,
+          status: 'HYPOTHESIS' as const,
+        });
+      }
+      edges.push({
+        id: `kb_edge_${f.id}`,
+        source: `kb_${f.subject}`,
+        target: `kb_${f.object}`,
+        relationType: f.relation,
+      });
+    }
+
+    return { nodes: Array.from(nodeMap.values()), edges };
+  }
+
+  /** Get the entity type of the active goal's anchor for cross-layer highlighting. */
+  getHighlightType(vm: IViewModel): string | null {
+    if (!vm.activeGoal) { return null; }
+    const anchor = vm.ssm.nodes.find(n => n.id === vm.activeGoal!.anchorNodeId);
+    return anchor?.type ?? null;
+  }
 
   getSelectedNode(vm: IViewModel): ISSMNode | null {
     if (!vm.selectedNodeId) { return null; }

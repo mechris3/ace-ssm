@@ -9,6 +9,7 @@ import { ISSMState, NodeStatus } from '../models/ssm.model';
 import { EngineState } from '../models/engine.model';
 import { IGoal } from '../models/ssm.model';
 import { IStrategy, IStrategyWeights, IReasoningStep } from '../models/strategy.model';
+import { IRelation } from '../models/task-structure.model';
 
 import * as EngineActions from '../store/engine/engine.actions';
 import * as SSMActions from '../store/ssm/ssm.actions';
@@ -22,7 +23,9 @@ import { selectEngineState, selectActiveGoal } from '../store/engine/engine.sele
 import { selectStrategy } from '../store/strategy/strategy.selectors';
 import { selectEntityTypes } from '../store/task-structure/task-structure.selectors';
 import { selectTaskStructure, selectTaskStructureLoaded, selectTaskStructureError } from '../store/task-structure/task-structure.selectors';
+import { selectRelations } from '../store/task-structure/task-structure.selectors';
 import { selectAllFragments, selectKnowledgeBaseLoaded, selectKnowledgeBaseError } from '../store/knowledge-base/knowledge-base.selectors';
+import { computeDifferential, IDifferentialEntry } from '../store/ssm/ssm.selectors';
 
 export interface IViewModel {
   ssm: ISSMState;
@@ -36,6 +39,8 @@ export interface IViewModel {
   kbError: string | null;
   domainError: string | null;
   entityTypes: string[];
+  relations: IRelation[];
+  differential: IDifferentialEntry[];
 }
 
 @Injectable({ providedIn: 'root' })
@@ -55,9 +60,10 @@ export class FacadeService {
       this.store.select(selectKnowledgeBaseLoaded),
       this.store.select(selectKnowledgeBaseError),
       this.store.select(selectEntityTypes),
+      this.store.select(selectRelations),
     ]).pipe(
       map(([ssm, engineState, activeGoal, strategy, selectedNodeId,
-            taskStructureLoaded, taskStructureError, kbLoaded, kbError, entityTypes]) => ({
+            taskStructureLoaded, taskStructureError, kbLoaded, kbError, entityTypes, relations]) => ({
         ssm,
         engineState,
         activeGoal,
@@ -69,6 +75,8 @@ export class FacadeService {
         kbError,
         domainError: taskStructureError || kbError,
         entityTypes,
+        relations,
+        differential: computeDifferential(ssm.nodes, ssm.edges, relations),
       })),
       shareReplay(1),
     );

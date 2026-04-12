@@ -13,7 +13,7 @@
  */
 
 import { createFeatureSelector, createSelector } from '@ngrx/store';
-import { ISSMState } from '../../models/ssm.model';
+import { ISSMState, ISSMNode } from '../../models/ssm.model';
 import { ssmFeatureKey } from './ssm.reducer';
 
 /**
@@ -88,3 +88,105 @@ export const selectPendingFindingNode = createSelector(
     return state.nodes.find(n => n.id === state.pendingFindingNodeId) ?? null;
   }
 );
+
+/**
+ * Diagnostic Differential — the set of competing candidate solutions.
+ * [Ref: Paper Sec 3.2.1 / Gap Analysis Gap 1]
+ *
+ * A differential entry is an SSM node of the "root" entity type (the type
+ * that appears as `from` in relations but never as `to` — e.g., Condition).
+ * Each entry tracks how many seed findings it covers (directly or transitively).
+ */
+export interface IDifferentialEntry {
+  /** The candidate Condition/Disease node. */
+  node: ISSMNode;
+  /** Number of seed Symptom nodes this candidate covers via edges. */
+  coveredSeedCount: number;
+  /** Total number of seed Symptom nodes in the SSM. */
+  totalSeedCount: number;
+  /** Whether this candidate covers ALL seed findings. */
+  isComplete: boolean;
+}
+
+import { IRelation } from '../../models/task-structure.model';
+
+/**
+ * Computes the diagnostic differential from SSM state and Task Structure relations.
+ * [Ref: Paper Sec 3.2.1 — G_g global goal constraint]
+ *
+ * The "root" entity type is identified dynamically: it's any type that appears
+ * as `from` in at least one relation but never as `to`. This is the top of the
+ * ontological hierarchy (e.g., Condition, Disease).
+ *
+ * For each root-type node in the SSM, we trace edges transitively to find
+ * which seed Symptom nodes it covers. A candidate that covers ALL seeds is
+ * marked as `isComplete` — it satisfies the global goal constraint G_g.
+ *
+ * Pure function — no side effects.
+ */
+export function computeDifferential(
+  nodes: ISSMNode[],
+  edges: { source: string; target: string; relationType: string }[],
+  relations: IRelation[]
+): IDifferentialEntry[] {
+  if (nodes.length === 0 || relations.length === 0) { return []; }
+
+  // Identify root entity types: types that appear as `from` but never as `to`
+  const fromTypes = new Set(relations.map(r => r.from));
+  const toTypes = new Set(relations.map(r => r.to));
+  const rootTypes = new Set([...fromTypes].filter(t => !toTypes.has(t)));
+
+  // If no clear root type, fall back to types that are only `from` in the majority
+  if (rootTypes.size === 0) { return []; }
+
+  // Identify seed nodes: CONFIRMED nodes whose type is a leaf type
+  // (appears as `to` but never as `from` — e.g., Symptom)
+  const leafTypes = new Set([...toTypes].filter(t => !fromTypes.has(t)));
+  const seedNodes = nodes.filter(n => n.status === 'CONFIRMED' && leafTypes.has(n.type));
+  const seedIds = new Set(seedNodes.map(n => n.id));
+  const totalSeedCount = seedIds.size;
+
+  if (totalSeedCount === 0) { return []; }
+
+  // Build adjacency list for transitive reachability (follow edges in both directions)
+  const adjacency = new Map<string, Set<string>>();
+  for (const e of edges) {
+    const src = typeof e.source === 'string' ? e.source : (e.source as any).id;
+    const tgt = typeof e.target === 'string' ? e.target : (e.target as any).id;
+    if (!adjacency.has(src)) { adjacency.set(src, new Set()); }
+    if (!adjacency.has(tgt)) { adjacency.set(tgt, new Set()); }
+    adjacency.get(src)!.add(tgt);
+    adjacency.get(tgt)!.add(src);
+  }
+
+  // For each root-type node, BFS to find which seed nodes are reachable
+  const rootNodes = nodes.filter(n => rootTypes.has(n.type) && n.status !== 'REFUTED');
+
+  return rootNodes.map(rootNode => {
+    const visited = new Set<string>();
+    const queue = [rootNode.id];
+    visited.add(rootNode.id);
+    let coveredSeedCount = 0;
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      if (seedIds.has(current)) { coveredSeedCount++; }
+      const neighbors = adjacency.get(current);
+      if (neighbors) {
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+    }
+
+    return {
+      node: rootNode,
+      coveredSeedCount,
+      totalSeedCount,
+      isComplete: coveredSeedCount >= totalSeedCount,
+    };
+  }).sort((a, b) => b.coveredSeedCount - a.coveredSeedCount);
+}

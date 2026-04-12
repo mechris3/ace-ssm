@@ -23,14 +23,67 @@
   </app-domain-console>
 
   <div class="workspace">
-    <app-ssm-graph
-      [nodes]="vm.ssm.nodes"
-      [edges]="vm.ssm.edges"
-      [activeGoal]="vm.activeGoal"
-      [selectedNodeId]="vm.selectedNodeId"
-      [highlightNodeId]="highlightNodeId"
-      (onNodeClick)="handleNodeClick($event)">
-    </app-ssm-graph>
+    <!-- View Switcher Tabs -->
+    <div class="view-tabs">
+      <button
+        class="view-tab"
+        [class.active]="viewMode() === 'ssm'"
+        (click)="viewMode.set('ssm')">
+        SSM <span class="tab-badge">Active</span>
+      </button>
+      <button
+        class="view-tab"
+        [class.active]="viewMode() === 'taskStructure'"
+        (click)="viewMode.set('taskStructure')">
+        Task Structure <span class="tab-badge">Grammar</span>
+      </button>
+      <button
+        class="view-tab"
+        [class.active]="viewMode() === 'knowledgeBase'"
+        (click)="viewMode.set('knowledgeBase')">
+        Knowledge Base <span class="tab-badge">Library</span>
+      </button>
+    </div>
+
+    <!-- SSM View (primary interactive workspace) -->
+    <div class="graph-container" *ngIf="viewMode() === 'ssm'">
+      <app-ssm-graph
+        [nodes]="vm.ssm.nodes"
+        [edges]="vm.ssm.edges"
+        [activeGoal]="vm.activeGoal"
+        [selectedNodeId]="vm.selectedNodeId"
+        [highlightNodeId]="highlightNodeId"
+        (onNodeClick)="handleNodeClick($event)">
+      </app-ssm-graph>
+    </div>
+
+    <!-- Task Structure View -->
+    <div class="graph-container" *ngIf="viewMode() === 'taskStructure'">
+      <ng-container *ngIf="relations$ | async as relations">
+        <app-ssm-graph
+          [nodes]="taskStructureToGraph(vm.entityTypes, relations).nodes"
+          [edges]="taskStructureToGraph(vm.entityTypes, relations).edges"
+          [activeGoal]="null"
+          [selectedNodeId]="null"
+          [highlightNodeId]="getHighlightType(vm) ? 'ts_' + getHighlightType(vm) : null"
+          (onNodeClick)="handleNodeClick($event)">
+        </app-ssm-graph>
+      </ng-container>
+    </div>
+
+    <!-- Knowledge Base View -->
+    <div class="graph-container" *ngIf="viewMode() === 'knowledgeBase'">
+      <ng-container *ngIf="fragments$ | async as fragments">
+        <app-ssm-graph
+          [nodes]="kbToGraph(fragments).nodes"
+          [edges]="kbToGraph(fragments).edges"
+          [activeGoal]="null"
+          [selectedNodeId]="null"
+          [highlightNodeId]="vm.activeGoal ? 'kb_' + vm.activeGoal.anchorLabel : null"
+          (onNodeClick)="handleNodeClick($event)">
+        </app-ssm-graph>
+      </ng-container>
+    </div>
 
     <app-inquiry-overlay
       [engineState]="vm.engineState"
@@ -48,6 +101,9 @@
         (onClearSelection)="facade.selectNode(null)"
         (onNodeLinkClick)="facade.selectNode($event)">
       </app-node-inspector>
+      <app-differential-panel
+        [entries]="vm.differential">
+      </app-differential-panel>
     </div>
     <div class="right-lower">
       <app-audit-trail

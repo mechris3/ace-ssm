@@ -83,18 +83,18 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
       .attr('r', 1)
       .attr('class', 'grid-dot');
 
-    // Arrowhead marker
+    // Arrowhead marker — visible directional indicator on edges
     defs.append('marker')
       .attr('id', 'arrowhead')
       .attr('viewBox', '0 -5 10 10')
-      .attr('refX', 28)
+      .attr('refX', 26)
       .attr('refY', 0)
-      .attr('markerWidth', 6)
-      .attr('markerHeight', 6)
+      .attr('markerWidth', 8)
+      .attr('markerHeight', 8)
       .attr('orient', 'auto')
       .append('path')
-      .attr('d', 'M0,-5L10,0L0,5')
-      .attr('fill', 'var(--border-color)');
+      .attr('d', 'M0,-4L10,0L0,4')
+      .attr('fill', 'var(--text-muted)');
 
     // Background rect with grid pattern
     this.svg.append('rect')
@@ -117,12 +117,10 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.initialized = true;
 
-    // Always attempt an initial render — if nodes arrived before init
-    // (via ngOnChanges that was skipped because initialized was false),
-    // this catches them. If nodes are empty, updateGraph is a no-op
-    // (D3 data join with empty array just clears any existing elements).
+    // Defer the initial render to the next animation frame so the flex
+    // layout has settled and clientWidth/clientHeight are accurate.
     if (this.nodes.length > 0 || this.edges.length > 0) {
-      setTimeout(() => this.updateGraph(), 0);
+      requestAnimationFrame(() => this.updateGraph());
     }
   }
 
@@ -133,10 +131,9 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
     }
 
     if (changes['nodes'] || changes['edges']) {
-      // Use setTimeout(0) to ensure D3 runs outside Angular's change detection
-      // cycle, preventing "ExpressionChangedAfterItHasBeenChecked" errors
-      // and ensuring the SVG element has its final dimensions
-      setTimeout(() => this.updateGraph(), 0);
+      // Use requestAnimationFrame to ensure the container has its final
+      // dimensions before D3 reads them for force center positioning.
+      requestAnimationFrame(() => this.updateGraph());
     }
 
     if (changes['activeGoal']) {
@@ -161,11 +158,12 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
   // ── Task 8.2: Enter/Update/Exit ──────────────────────────────────
 
   private updateGraph(): void {
-    // Recalculate dimensions in case the container resized since init
-    // (e.g., CSS Grid hadn't laid out yet when ngAfterViewInit fired)
+    // Recalculate dimensions from the actual SVG element size.
+    // The flex layout may not have settled when ngAfterViewInit fired,
+    // so we always read fresh values here.
     const el = this.svgRef.nativeElement;
-    const newWidth = el.clientWidth || this.width;
-    const newHeight = el.clientHeight || this.height;
+    const newWidth = el.clientWidth || 800;
+    const newHeight = el.clientHeight || 600;
     if (newWidth !== this.width || newHeight !== this.height) {
       this.width = newWidth;
       this.height = newHeight;
@@ -187,8 +185,9 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     // Enter
     const edgeEnter = edgeSel.enter().append('g').attr('class', 'edge-group');
-    edgeEnter.append('line')
+    edgeEnter.append('path')
       .attr('class', 'edge-line')
+      .attr('fill', 'none')
       .attr('marker-end', 'url(#arrowhead)');
     edgeEnter.append('text')
       .attr('class', 'edge-label');
@@ -306,17 +305,80 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
   // ── Tick: update positions ────────────────────────────────────────
 
   private ticked(): void {
-    // Update edge lines
-    this.edgeGroup.selectAll<SVGLineElement, SimEdge>('line.edge-line')
-      .attr('x1', (d: SimEdge) => (d.source as SimNode).x ?? 0)
-      .attr('y1', (d: SimEdge) => (d.source as SimNode).y ?? 0)
-      .attr('x2', (d: SimEdge) => (d.target as SimNode).x ?? 0)
-      .attr('y2', (d: SimEdge) => (d.target as SimNode).y ?? 0);
+    // Build a map of parallel edges (same source+target pair) so we can
+    // curve them apart. Key is sorted pair of node IDs.
+    const pairCount = new Map<string, number>();
+    const pairIndex = new Map<string, number>();
+    for (const e of this.simEdges) {
+      const srcId = typeof e.source === 'string' ? e.source : (e.source as SimNode).id;
+      const tgtId = typeof e.target === 'string' ? e.target : (e.target as SimNode).id;
+      const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
+      const count = (pairCount.get(key) ?? 0) + 1;
+      pairCount.set(key, count);
+      pairIndex.set(e.id, count - 1);
+    }
 
-    // Update edge labels (midpoint)
+    // Update edge paths — straight line for single edges, curved for parallels
+    this.edgeGroup.selectAll<SVGPathElement, SimEdge>('path.edge-line')
+      .attr('d', (d: SimEdge) => {
+        const src = d.source as SimNode;
+        const tgt = d.target as SimNode;
+        const x1 = src.x ?? 0, y1 = src.y ?? 0;
+        const x2 = tgt.x ?? 0, y2 = tgt.y ?? 0;
+
+        const srcId = src.id;
+        const tgtId = tgt.id;
+        const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
+        const total = pairCount.get(key) ?? 1;
+        const idx = pairIndex.get(d.id) ?? 0;
+
+        if (total <= 1) {
+          // Single edge — straight line
+          return `M${x1},${y1}L${x2},${y2}`;
+        }
+
+        // Parallel edges — curve them apart using a quadratic bezier
+        const dx = x2 - x1, dy = y2 - y1;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        // Perpendicular offset: spread edges evenly around the center line
+        const offset = (idx - (total - 1) / 2) * 30;
+        const mx = (x1 + x2) / 2 + (-dy / dist) * offset;
+        const my = (y1 + y2) / 2 + (dx / dist) * offset;
+        return `M${x1},${y1}Q${mx},${my},${x2},${y2}`;
+      });
+
+    // Update edge labels (midpoint, offset for parallel edges)
     this.edgeGroup.selectAll<SVGTextElement, SimEdge>('text.edge-label')
-      .attr('x', (d: SimEdge) => (((d.source as SimNode).x ?? 0) + ((d.target as SimNode).x ?? 0)) / 2)
-      .attr('y', (d: SimEdge) => (((d.source as SimNode).y ?? 0) + ((d.target as SimNode).y ?? 0)) / 2);
+      .attr('x', (d: SimEdge) => {
+        const src = d.source as SimNode;
+        const tgt = d.target as SimNode;
+        const x1 = src.x ?? 0, y1 = src.y ?? 0;
+        const x2 = tgt.x ?? 0, y2 = tgt.y ?? 0;
+        const srcId = src.id, tgtId = tgt.id;
+        const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
+        const total = pairCount.get(key) ?? 1;
+        const idx = pairIndex.get(d.id) ?? 0;
+        if (total <= 1) return (x1 + x2) / 2;
+        const dx = x2 - x1, dy = y2 - y1;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const offset = (idx - (total - 1) / 2) * 30;
+        return (x1 + x2) / 2 + (-dy / dist) * offset * 0.5;
+      })
+      .attr('y', (d: SimEdge) => {
+        const src = d.source as SimNode;
+        const tgt = d.target as SimNode;
+        const x1 = src.x ?? 0, y1 = src.y ?? 0;
+        const x2 = tgt.x ?? 0, y2 = tgt.y ?? 0;
+        const srcId = src.id, tgtId = tgt.id;
+        const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
+        const total = pairCount.get(key) ?? 1;
+        const idx = pairIndex.get(d.id) ?? 0;
+        if (total <= 1) return (y1 + y2) / 2;
+        const dx = x2 - x1, dy = y2 - y1;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const offset = (idx - (total - 1) / 2) * 30;
+        return (y1 + y2) / 2 + (dx / dist) * offset * 0.5;
+      });
 
     // Update node positions
     this.nodeGroup.selectAll<SVGGElement, SimNode>('g.node-group')
