@@ -102,4 +102,13 @@ export interface IKnowledgeFragment {
 
   /** Heuristic metadata used by the Search Operator for scoring. All values in [0, 1]. */
   metadata: IFragmentMetadata;
+
+  /**
+   * Whether nodes spawned from this fragment require user confirmation.
+   *
+   * When `true`, HYPOTHESIS nodes created from this fragment will have
+   * `canBeConfirmed: true`, causing the engine to pause for a finding-
+   * confirmation inquiry when the Searchlight reaches them.
+   */
+  canBeConfirmed?: boolean;
 }

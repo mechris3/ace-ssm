@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { BehaviorSubject, combineLatest, Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, shareReplay } from 'rxjs/operators';
 
 import { PacerService } from './pacer.service';
 
@@ -15,13 +15,14 @@ import * as SSMActions from '../store/ssm/ssm.actions';
 import * as StrategyActions from '../store/strategy/strategy.actions';
 import * as TaskStructureActions from '../store/task-structure/task-structure.actions';
 import * as KnowledgeBaseActions from '../store/knowledge-base/knowledge-base.actions';
+import { IDomain } from '../models/domain.model';
 
 import { selectSSMState } from '../store/ssm/ssm.selectors';
 import { selectEngineState, selectActiveGoal } from '../store/engine/engine.selectors';
 import { selectStrategy } from '../store/strategy/strategy.selectors';
 import { selectEntityTypes } from '../store/task-structure/task-structure.selectors';
-import { selectTaskStructureLoaded, selectTaskStructureError } from '../store/task-structure/task-structure.selectors';
-import { selectKnowledgeBaseLoaded, selectKnowledgeBaseError } from '../store/knowledge-base/knowledge-base.selectors';
+import { selectTaskStructure, selectTaskStructureLoaded, selectTaskStructureError } from '../store/task-structure/task-structure.selectors';
+import { selectAllFragments, selectKnowledgeBaseLoaded, selectKnowledgeBaseError } from '../store/knowledge-base/knowledge-base.selectors';
 
 export interface IViewModel {
   ssm: ISSMState;
@@ -33,6 +34,7 @@ export interface IViewModel {
   taskStructureError: string | null;
   kbLoaded: boolean;
   kbError: string | null;
+  domainError: string | null;
   entityTypes: string[];
 }
 
@@ -65,8 +67,10 @@ export class FacadeService {
         taskStructureError,
         kbLoaded,
         kbError,
+        domainError: taskStructureError || kbError,
         entityTypes,
-      }))
+      })),
+      shareReplay(1),
     );
   }
 
@@ -97,13 +101,94 @@ export class FacadeService {
   }
 
   loadTaskStructure(json: string): void {
-    const parsed = JSON.parse(json);
-    this.store.dispatch(TaskStructureActions.loadTaskStructure({ taskStructure: parsed }));
+    try {
+      const parsed = JSON.parse(json);
+      this.store.dispatch(TaskStructureActions.loadTaskStructure({ taskStructure: parsed }));
+    } catch (e) {
+      this.store.dispatch(TaskStructureActions.loadTaskStructureFailure({
+        error: `JSON parse error: ${(e as Error).message}`,
+      }));
+    }
   }
 
   loadKnowledgeBase(json: string): void {
-    const parsed = JSON.parse(json);
-    this.store.dispatch(KnowledgeBaseActions.loadKnowledgeBase({ fragments: parsed }));
+    try {
+      const parsed = JSON.parse(json);
+      this.store.dispatch(KnowledgeBaseActions.loadKnowledgeBase({ fragments: parsed }));
+    } catch (e) {
+      this.store.dispatch(KnowledgeBaseActions.loadKnowledgeBaseFailure({
+        error: `JSON parse error: ${(e as Error).message}`,
+      }));
+    }
+  }
+
+  loadDomain(json: string): void {
+    try {
+      const parsed: IDomain = JSON.parse(json);
+
+      if (!parsed.structure || !parsed.knowledgeBase) {
+        this.store.dispatch(TaskStructureActions.loadTaskStructureFailure({
+          error: 'Invalid Domain JSON: missing "structure" or "knowledgeBase" field.',
+        }));
+        return;
+      }
+
+      // Atomic load: Task Structure → KB → (optional) SSM restore → (optional) Strategy restore
+      this.store.dispatch(TaskStructureActions.loadTaskStructure({ taskStructure: parsed.structure }));
+      this.store.dispatch(KnowledgeBaseActions.loadKnowledgeBase({ fragments: parsed.knowledgeBase }));
+
+      // Restore previous session state if present.
+      // Normalize the SSM to handle alternate field names (e.g., "auditTrail" → "history")
+      // and missing fields. The store expects ISSMState shape exactly.
+      if (parsed.ssm) {
+        const raw = parsed.ssm as any;
+        const normalizedSSM: ISSMState = {
+          nodes: Array.isArray(raw.nodes) ? raw.nodes : [],
+          edges: Array.isArray(raw.edges) ? raw.edges : [],
+          history: Array.isArray(raw.history) ? raw.history
+                 : Array.isArray(raw.auditTrail) ? raw.auditTrail
+                 : [],
+          isRunning: typeof raw.isRunning === 'boolean' ? raw.isRunning : false,
+          waitingForUser: typeof raw.waitingForUser === 'boolean' ? raw.waitingForUser : false,
+          pendingFindingNodeId: typeof raw.pendingFindingNodeId === 'string' ? raw.pendingFindingNodeId : null,
+        };
+        this.store.dispatch(SSMActions.restoreSSM({ ssmState: normalizedSSM }));
+      }
+      if (parsed.strategy) {
+        this.store.dispatch(StrategyActions.updateStrategy({ name: parsed.strategy.name, weights: parsed.strategy.weights }));
+        this.store.dispatch(StrategyActions.updatePacerDelay({ pacerDelay: parsed.strategy.pacerDelay }));
+      }
+    } catch (e) {
+      this.store.dispatch(TaskStructureActions.loadTaskStructureFailure({
+        error: `Domain JSON parse error: ${(e as Error).message}`,
+      }));
+    }
+  }
+
+  /**
+   * Exports the current domain session as a JSON string.
+   * Captures the full state: structure, KB, SSM (nodes/edges/history), and strategy.
+   * The resulting JSON can be saved to a file and loaded later to resume the session.
+   */
+  exportDomain(domainId: string, domainName: string): Observable<string> {
+    return combineLatest([
+      this.store.select(selectTaskStructure),
+      this.store.select(selectAllFragments),
+      this.store.select(selectSSMState),
+      this.store.select(selectStrategy),
+    ]).pipe(
+      map(([structure, knowledgeBase, ssm, strategy]) => {
+        const domain: IDomain = {
+          id: domainId,
+          name: domainName,
+          structure,
+          knowledgeBase,
+          ssm,
+          strategy,
+        };
+        return JSON.stringify(domain, null, 2);
+      }),
+    );
   }
 
   seedFinding(label: string, type: string): void {
@@ -113,19 +198,22 @@ export class FacadeService {
       edges: [],
       reasoningStep: {
         timestamp: Date.now(),
-        selectedGoal: { id: `goal_seed`, kind: 'EXPAND', anchorNodeId: id, anchorLabel: label, targetRelation: 'SEED', targetType: type },
+        selectedGoal: { id: `goal_seed`, kind: 'EXPAND', anchorNodeId: id, anchorLabel: label, targetRelation: 'SEED', targetType: type, direction: 'forward' },
         totalScore: 0,
         factors: [],
         strategyName: 'Manual',
         actionTaken: `Seeded finding: ${label} (${type})`,
       },
     }));
+    // Auto-trigger a pulse so the engine immediately investigates the new finding
+    this.store.dispatch(EngineActions.engineStart());
+    this.pacer.step();
   }
 
   resolveInquiry(nodeId: string, newStatus: NodeStatus, newLabel: string | null, auditText: string): void {
     const reasoningStep: IReasoningStep = {
       timestamp: Date.now(),
-      selectedGoal: { id: `goal_resolve`, kind: 'EXPAND', anchorNodeId: nodeId, anchorLabel: newLabel ?? '', targetRelation: 'RESOLVE', targetType: '' },
+      selectedGoal: { id: `goal_resolve`, kind: 'EXPAND', anchorNodeId: nodeId, anchorLabel: newLabel ?? '', targetRelation: 'RESOLVE', targetType: '', direction: 'forward' },
       totalScore: 0,
       factors: [],
       strategyName: 'Manual',
@@ -133,6 +221,61 @@ export class FacadeService {
     };
     this.store.dispatch(SSMActions.resolveInquiry({ nodeId, newStatus, newLabel, reasoningStep }));
     this.store.dispatch(EngineActions.engineInquiryAnswered());
+  }
+
+  confirmFinding(nodeId: string, nodeLabel: string): void {
+    const reasoningStep: IReasoningStep = {
+      timestamp: Date.now(),
+      selectedGoal: { id: `goal_confirm`, kind: 'EXPAND', anchorNodeId: nodeId, anchorLabel: nodeLabel, targetRelation: 'CONFIRM_FINDING', targetType: '', direction: 'forward' },
+      totalScore: 0,
+      factors: [],
+      strategyName: 'Manual',
+      actionTaken: `User confirmed finding: "${nodeLabel}"`,
+    };
+    this.store.dispatch(SSMActions.confirmFinding({ nodeId, reasoningStep }));
+    this.store.dispatch(EngineActions.engineInquiryAnswered());
+    this.resumeAfterInquiry();
+  }
+
+  refuteFinding(nodeId: string, nodeLabel: string): void {
+    const reasoningStep: IReasoningStep = {
+      timestamp: Date.now(),
+      selectedGoal: { id: `goal_refute`, kind: 'EXPAND', anchorNodeId: nodeId, anchorLabel: nodeLabel, targetRelation: 'REFUTE_FINDING', targetType: '', direction: 'forward' },
+      totalScore: 0,
+      factors: [],
+      strategyName: 'Manual',
+      actionTaken: `User refuted finding: "${nodeLabel}"`,
+    };
+    this.store.dispatch(SSMActions.refuteFinding({ nodeId, reasoningStep }));
+    this.store.dispatch(EngineActions.engineInquiryAnswered());
+    this.resumeAfterInquiry();
+  }
+
+  skipFinding(nodeId: string, nodeLabel: string): void {
+    const reasoningStep: IReasoningStep = {
+      timestamp: Date.now(),
+      selectedGoal: { id: `goal_skip`, kind: 'EXPAND', anchorNodeId: nodeId, anchorLabel: nodeLabel, targetRelation: 'SKIP_FINDING', targetType: '', direction: 'forward' },
+      totalScore: 0,
+      factors: [],
+      strategyName: 'Manual',
+      actionTaken: `User skipped finding: "${nodeLabel}"`,
+    };
+    this.store.dispatch(SSMActions.skipFinding({ nodeId, reasoningStep }));
+    this.store.dispatch(EngineActions.engineInquiryAnswered());
+    this.resumeAfterInquiry();
+  }
+
+  /**
+   * Automatically resumes inference after an inquiry resolution.
+   *
+   * Resumes continuous running so the engine processes all pending goals
+   * (including NO_MATCH placeholders) until it hits the next confirmable
+   * node or exhausts all goals. This prevents the engine from stalling
+   * on low-value goals between inquiry pauses.
+   */
+  private resumeAfterInquiry(): void {
+    this.store.dispatch(EngineActions.engineStart());
+    this.pacer.run();
   }
 
   updateStrategy(weights: IStrategyWeights): void {

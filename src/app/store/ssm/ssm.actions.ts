@@ -1,15 +1,12 @@
 /**
  * @fileoverview SSM Store Actions — all possible mutations to the SSM state.
+ * [Ref: MD Sec 6.2 - SSM Actions]
  *
  * The SSM (Layer 3 — Working Memory) is the central artifact of the inference
  * engine. These actions represent every way the SSM can change. Each action
  * carries a `reasoningStep` (except reset/restore) to maintain the "Glass Box"
  * audit trail — every mutation is explained.
- *
- * @remarks
- * DESIGN DECISION: SSM actions are granular (one per mutation type) rather than
- * a single "updateSSM" action. This makes the reducer logic explicit, the
- * DevTools timeline readable, and the action stream filterable for effects.
+ * [Ref: MD Sec 10 Invariant 5 - Every mutation is explained]
  */
 
 import { createAction, props } from '@ngrx/store';
@@ -17,15 +14,11 @@ import { ISSMNode, ISSMEdge, ISSMState, NodeStatus } from '../../models/ssm.mode
 import { IReasoningStep } from '../../models/strategy.model';
 
 /**
- * Appends new HYPOTHESIS nodes and edges to the SSM graph.
- *
- * Triggered by the Inference Engine when the Knowledge Operator returns a PATCH
- * result (one or more KB fragments matched an EXPAND goal). This is the primary
- * mechanism for growing the SSM graph.
- *
- * @remarks
- * DESIGN DECISION: The patch is append-only — existing nodes and edges are never
- * modified or removed by this action. This preserves the full reasoning trail.
+ * [Ref: MD Sec 6.2 - applyPatch]
+ * Appends new HYPOTHESIS nodes and/or edges to the SSM graph.
+ * Triggered by the Knowledge Operator PATCH result (Sec 3.3.2, 3.3.3, 4.6).
+ * Also used for placeholder edges (Sec 4.4, 4.5).
+ * WHY: Append-only — preserves the full reasoning trail (Invariant 2).
  */
 export const applyPatch = createAction(
   '[SSM] Apply Patch',
@@ -33,11 +26,9 @@ export const applyPatch = createAction(
 );
 
 /**
- * Creates a QUESTION node and edge when the Knowledge Operator returns
- * INQUIRY_REQUIRED (no KB fragments matched the goal).
- *
- * Also sets `waitingForUser = true` to signal the UI that user input is needed.
- * The engine FSM transitions to INQUIRY state via a separate engine action.
+ * [Ref: MD Sec 6.2 - openInquiry] (legacy)
+ * Creates a QUESTION node and edge when the Knowledge Operator returned
+ * INQUIRY_REQUIRED. Sets `waitingForUser = true`.
  */
 export const openInquiry = createAction(
   '[SSM] Open Inquiry',
@@ -45,17 +36,9 @@ export const openInquiry = createAction(
 );
 
 /**
+ * [Ref: MD Sec 6.2 - resolveInquiry] (legacy)
  * Resolves an open QUESTION node with user-provided information.
- *
- * The user can either CONFIRM the question (providing a label for the answer)
- * or mark it as UNKNOWN (no label change). This action updates the node's
- * status and optionally its label, clears `waitingForUser`, and appends
- * a reasoning step to the history.
- *
- * @remarks
- * DESIGN DECISION: `newLabel` is nullable — UNKNOWN resolutions don't change
- * the label (the "?" prefix remains as a visual indicator). CONFIRMED
- * resolutions replace the label with the user's answer (e.g., "Chest Pain").
+ * Updates status and optionally label. Clears `waitingForUser`.
  */
 export const resolveInquiry = createAction(
   '[SSM] Resolve Inquiry',
@@ -63,17 +46,11 @@ export const resolveInquiry = createAction(
 );
 
 /**
+ * [Ref: MD Sec 6.2 - applyStatusUpgrade]
  * Promotes a HYPOTHESIS node to CONFIRMED status.
- *
- * Triggered when the Knowledge Operator returns STATUS_UPGRADE_PATCH — the
- * Goal Generator detected that all CONFIRMED_BY targets are CONFIRMED, and
- * the Search Operator selected this goal as the winner.
- *
- * @remarks
- * DESIGN DECISION: This is a separate action from `applyPatch` because it
- * mutates an existing node's status rather than appending new nodes. The
- * reducer uses `map()` to find and update the target node, which is a
- * fundamentally different operation from array concatenation.
+ * Triggered by STATUS_UPGRADE_PATCH result (Sec 3.3.1).
+ * WHY: Separate from applyPatch because it mutates an existing node's
+ * status rather than appending new nodes.
  */
 export const applyStatusUpgrade = createAction(
   '[SSM] Apply Status Upgrade',
@@ -81,22 +58,65 @@ export const applyStatusUpgrade = createAction(
 );
 
 /**
+ * [Ref: MD Sec 6.2 - resetSSM]
  * Resets the SSM to its initial empty state.
- *
- * Clears all nodes, edges, history, and flags. Used when the user wants
- * to start a fresh inference cycle. No reasoning step is recorded because
- * the history itself is cleared.
  */
 export const resetSSM = createAction('[SSM] Reset');
 
 /**
+ * [Ref: MD Sec 6.2 - restoreSSM]
  * Restores the SSM from a deserialized state (e.g., loaded from JSON).
- *
- * Replaces the entire SSM state wholesale. Used by the SSM Serializer
- * to load a previously saved state. The provided state is assumed to
- * have passed structural validation in the serializer.
+ * Replaces the entire state wholesale.
  */
 export const restoreSSM = createAction(
   '[SSM] Restore',
   props<{ ssmState: ISSMState }>()
+);
+
+/**
+ * [Ref: MD Sec 6.2 - openFindingInquiry]
+ * [Ref: MD Sec 5.1 - Trigger Condition]
+ * Opens a finding-confirmation inquiry for a HYPOTHESIZED node.
+ * Sets `waitingForUser = true` and `pendingFindingNodeId`.
+ * WHY: Unlike openInquiry, this does NOT create a QUESTION node —
+ * it targets an existing HYPOTHESIS and asks the user to confirm it.
+ */
+export const openFindingInquiry = createAction(
+  '[SSM] Open Finding Inquiry',
+  props<{ nodeId: string; reasoningStep: IReasoningStep }>()
+);
+
+/**
+ * [Ref: MD Sec 6.2 - confirmFinding]
+ * [Ref: MD Sec 5.3 - User Actions: Confirm]
+ * Confirms a HYPOTHESIZED finding → status flips to CONFIRMED.
+ * Clears `waitingForUser` and `pendingFindingNodeId`.
+ */
+export const confirmFinding = createAction(
+  '[SSM] Confirm Finding',
+  props<{ nodeId: string; reasoningStep: IReasoningStep }>()
+);
+
+/**
+ * [Ref: MD Sec 6.2 - refuteFinding]
+ * [Ref: MD Sec 5.3 - User Actions: Refute]
+ * Refutes a HYPOTHESIZED finding → status flips to REFUTED.
+ * WHY: REFUTED nodes apply a 99% penalty (0.01×) to all downstream
+ * goals, effectively killing the branch. [Ref: MD Sec 3.2.3]
+ */
+export const refuteFinding = createAction(
+  '[SSM] Refute Finding',
+  props<{ nodeId: string; reasoningStep: IReasoningStep }>()
+);
+
+/**
+ * [Ref: MD Sec 6.2 - skipFinding]
+ * [Ref: MD Sec 5.3 - User Actions: Skip]
+ * Skips a finding inquiry → status flips to SKIPPED.
+ * WHY: SKIPPED nodes lose their urgency bonus for the current cycle
+ * but are not permanently penalized. [Ref: MD Sec 3.2.3]
+ */
+export const skipFinding = createAction(
+  '[SSM] Skip Finding',
+  props<{ nodeId: string; reasoningStep: IReasoningStep }>()
 );

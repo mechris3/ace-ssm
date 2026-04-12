@@ -9,8 +9,10 @@ import {
   AfterViewChecked,
   OnChanges,
   SimpleChanges,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { timer } from 'rxjs';
 import { IReasoningStep } from '../../models/strategy.model';
 
 @Component({
@@ -20,7 +22,17 @@ import { IReasoningStep } from '../../models/strategy.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrls: ['./audit-trail.component.css'],
   template: `
-    <div class="audit-header">Audit Trail</div>
+    <div class="audit-header">
+      <span>Audit Trail</span>
+      <button
+        class="copy-btn"
+        [class.copied]="copyState() === 'copied'"
+        (click)="copyToClipboard()"
+        title="Copy audit trail as Markdown">
+        <span *ngIf="copyState() === 'idle'">📋</span>
+        <span *ngIf="copyState() === 'copied'">✓ Copied</span>
+      </button>
+    </div>
     <div
       class="audit-scroll-container"
       #scrollContainer
@@ -35,7 +47,7 @@ import { IReasoningStep } from '../../models/strategy.model';
             <span class="score-badge">{{ step.totalScore | number:'1.1-1' }}</span>
             <span class="strategy-tag">{{ step.strategyName }}</span>
           </div>
-          <div class="impact-bars" *ngIf="step.factors.length > 0">
+          <div class="impact-bars" *ngIf="step.factors && step.factors.length > 0">
             <div class="impact-row" *ngFor="let factor of step.factors">
               <span class="impact-label" [title]="factor.label">{{ factor.label }}</span>
               <div class="impact-bar-track">
@@ -128,14 +140,14 @@ export class AuditTrailComponent implements OnChanges, AfterViewChecked {
   }
 
   getBarWidth(step: IReasoningStep, impact: number): number {
-    const maxAbs = Math.max(...step.factors.map(f => Math.abs(f.impact)), 1);
+    const maxAbs = Math.max(...(step.factors ?? []).map(f => Math.abs(f.impact)), 1);
     return (Math.abs(impact) / maxAbs) * 100;
   }
 
   getProseSummary(step: IReasoningStep): string {
     const goal = step.selectedGoal;
     if (!goal) { return step.actionTaken; }
-    const highestFactor = step.factors.length > 0
+    const highestFactor = step.factors && step.factors.length > 0
       ? step.factors.reduce((a, b) => Math.abs(b.impact) > Math.abs(a.impact) ? b : a)
       : null;
     const goalDesc = `${goal.anchorLabel} → ${goal.targetRelation}`;
@@ -148,6 +160,57 @@ export class AuditTrailComponent implements OnChanges, AfterViewChecked {
 
   trackByTimestamp(_index: number, step: IReasoningStep): number {
     return step.timestamp;
+  }
+
+  /** Reactive state for the copy button feedback. */
+  readonly copyState = signal<'idle' | 'copied'>('idle');
+
+  /** Copy the full audit trail as LLM-friendly Markdown to the clipboard. */
+  copyToClipboard(): void {
+    const md = this.formatAsMarkdown(this.allSteps);
+    navigator.clipboard.writeText(md).then(() => {
+      this.copyState.set('copied');
+      timer(2000).subscribe(() => this.copyState.set('idle'));
+    });
+  }
+
+  /** Format the full history as structured Markdown for LLM consumption. */
+  private formatAsMarkdown(steps: IReasoningStep[]): string {
+    if (!steps || steps.length === 0) { return '# Audit Trail\n\nNo reasoning steps recorded.'; }
+
+    const lines: string[] = ['# Audit Trail', ''];
+    const manualStrategies = new Set(['Manual']);
+
+    steps.forEach((step, i) => {
+      const isUserAction = manualStrategies.has(step.strategyName);
+      const sectionType = isUserAction ? '👤 User Action' : '⚙️ System Pulse';
+      const time = new Date(step.timestamp).toISOString().slice(11, 19);
+
+      lines.push(`### Step ${i + 1} — ${sectionType}`);
+      lines.push('');
+      lines.push(`- **Time:** ${time}`);
+      lines.push(`- **Strategy:** ${step.strategyName}`);
+      lines.push(`- **Action:** ${step.actionTaken}`);
+
+      if (step.selectedGoal) {
+        const g = step.selectedGoal;
+        lines.push(`- **Goal:** \`${g.kind}\` on \`${g.anchorLabel}\` → \`${g.targetRelation}\` (${g.direction})`);
+      }
+
+      lines.push(`- **Score:** ${step.totalScore.toFixed(1)}`);
+
+      if (step.factors && step.factors.length > 0) {
+        lines.push('- **Factors:**');
+        for (const f of step.factors) {
+          const sign = f.impact >= 0 ? '+' : '';
+          lines.push(`  - ${f.label}: ${sign}${f.impact.toFixed(1)} — ${f.explanation}`);
+        }
+      }
+
+      lines.push('');
+    });
+
+    return lines.join('\n');
   }
 
   /** Scroll to the most recent step referencing the given node ID as anchorNodeId. */

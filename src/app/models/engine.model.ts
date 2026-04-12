@@ -106,14 +106,23 @@ export interface IStatusUpgradePatchResult {
  * Result returned by the Knowledge Operator when no KB fragments match
  * the goal's anchor label and target relation.
  *
- * This triggers the INQUIRY lifecycle: the engine pauses, a QUESTION node
- * is created, and the user must provide an answer before inference resumes.
+ * The engine treats the Knowledge Base as ground truth, so a missing match
+ * simply means this relation doesn't exist in the domain. The engine silently
+ * skips the goal and marks the edge as explored so it won't be retried.
+ */
+export interface INoMatchResult {
+  /** Discriminator — identifies this as a no-match (skip) result. */
+  type: 'NO_MATCH';
+
+  /** The original goal that had no KB coverage. */
+  goal: IGoal;
+}
+
+/**
+ * Result returned by the Knowledge Operator when no KB fragments match
+ * the goal's anchor label and target relation.
  *
- * @remarks
- * DESIGN DECISION: INQUIRY_REQUIRED returns the original goal (not a new
- * node) because the Inference Engine orchestrator is responsible for creating
- * the QUESTION node and edge. This keeps the Knowledge Operator pure — it
- * doesn't need to know about QUESTION node creation or SSM mutation.
+ * @deprecated Retained for backward compatibility. New code should handle NO_MATCH instead.
  */
 export interface IInquiryRequiredResult {
   /** Discriminator — identifies this as an inquiry-needed result. */
@@ -139,4 +148,5 @@ export interface IInquiryRequiredResult {
 export type KnowledgeOperatorResult =
   | IPatchResult
   | IStatusUpgradePatchResult
+  | INoMatchResult
   | IInquiryRequiredResult;

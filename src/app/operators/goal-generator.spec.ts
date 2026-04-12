@@ -88,17 +88,27 @@ describe('Property 7: Goal Generator Completeness and Soundness', () => {
         const goals = generateGoals(ssm, taskStructure);
         const expandGoals = goals.filter(g => g.kind === 'EXPAND');
 
-        // Compute expected gaps: (node, relation) pairs where relation.from === node.type
-        // and no edge exists with source === node.id and relationType === relation.type
-        const expectedGaps: { nodeId: string; relType: string; targetType: string }[] = [];
+        // Compute expected gaps: forward (rel.from === node.type, no edge with source === node.id)
+        // and reverse (rel.to === node.type, no edge with target === node.id)
+        const expectedGaps: { nodeId: string; relType: string; targetType: string; direction: string }[] = [];
         for (const node of ssm.nodes) {
           for (const rel of taskStructure.relations) {
+            // Forward gaps
             if (rel.from === node.type) {
               const hasEdge = ssm.edges.some(
                 e => e.source === node.id && e.relationType === rel.type
               );
               if (!hasEdge) {
-                expectedGaps.push({ nodeId: node.id, relType: rel.type, targetType: rel.to });
+                expectedGaps.push({ nodeId: node.id, relType: rel.type, targetType: rel.to, direction: 'forward' });
+              }
+            }
+            // Reverse gaps (abductive)
+            if (rel.to === node.type) {
+              const hasEdge = ssm.edges.some(
+                e => e.target === node.id && e.relationType === rel.type
+              );
+              if (!hasEdge) {
+                expectedGaps.push({ nodeId: node.id, relType: rel.type, targetType: rel.from, direction: 'reverse' });
               }
             }
           }
@@ -107,7 +117,7 @@ describe('Property 7: Goal Generator Completeness and Soundness', () => {
         // Completeness: every expected gap has a corresponding EXPAND goal
         for (const gap of expectedGaps) {
           const matching = expandGoals.filter(
-            g => g.anchorNodeId === gap.nodeId && g.targetRelation === gap.relType && g.targetType === gap.targetType
+            g => g.anchorNodeId === gap.nodeId && g.targetRelation === gap.relType && g.targetType === gap.targetType && g.direction === gap.direction
           );
           expect(matching.length).toBe(1);
         }
@@ -115,7 +125,7 @@ describe('Property 7: Goal Generator Completeness and Soundness', () => {
         // Soundness: every EXPAND goal corresponds to an expected gap
         for (const goal of expandGoals) {
           const matchesGap = expectedGaps.some(
-            gap => gap.nodeId === goal.anchorNodeId && gap.relType === goal.targetRelation && gap.targetType === goal.targetType
+            gap => gap.nodeId === goal.anchorNodeId && gap.relType === goal.targetRelation && gap.targetType === goal.targetType && gap.direction === goal.direction
           );
           expect(matchesGap).toBeTrue();
         }
@@ -133,15 +143,22 @@ describe('Property 7: Goal Generator Completeness and Soundness', () => {
         const goals = generateGoals(ssm, taskStructure);
         const expandGoals = goals.filter(g => g.kind === 'EXPAND');
 
-        // Collect covered (node, relationType) pairs from existing edges
-        const coveredPairs = new Set(
+        // Collect covered (node, relationType, direction) pairs from existing edges
+        const coveredForwardPairs = new Set(
           ssm.edges.map(e => `${e.source}::${e.relationType}`)
+        );
+        const coveredReversePairs = new Set(
+          ssm.edges.map(e => `${e.target}::${e.relationType}`)
         );
 
         // No EXPAND goal should target a covered pair
         for (const goal of expandGoals) {
           const key = `${goal.anchorNodeId}::${goal.targetRelation}`;
-          expect(coveredPairs.has(key)).toBeFalse();
+          if (goal.direction === 'forward') {
+            expect(coveredForwardPairs.has(key)).toBeFalse();
+          } else {
+            expect(coveredReversePairs.has(key)).toBeFalse();
+          }
         }
       }),
       { numRuns: 100 }
@@ -157,13 +174,23 @@ describe('Property 7: Goal Generator Completeness and Soundness', () => {
         // For UNKNOWN nodes with existing edges, those edges close the gap
         const unknownNodes = ssm.nodes.filter(n => n.status === 'UNKNOWN');
         for (const node of unknownNodes) {
-          const coveredRelTypes = ssm.edges
+          // Forward: edges where node is source
+          const coveredForwardRelTypes = ssm.edges
             .filter(e => e.source === node.id)
             .map(e => e.relationType);
-
-          for (const relType of coveredRelTypes) {
+          for (const relType of coveredForwardRelTypes) {
             const regenerated = expandGoals.some(
-              g => g.anchorNodeId === node.id && g.targetRelation === relType
+              g => g.anchorNodeId === node.id && g.targetRelation === relType && g.direction === 'forward'
+            );
+            expect(regenerated).toBeFalse();
+          }
+          // Reverse: edges where node is target
+          const coveredReverseRelTypes = ssm.edges
+            .filter(e => e.target === node.id)
+            .map(e => e.relationType);
+          for (const relType of coveredReverseRelTypes) {
+            const regenerated = expandGoals.some(
+              g => g.anchorNodeId === node.id && g.targetRelation === relType && g.direction === 'reverse'
             );
             expect(regenerated).toBeFalse();
           }
@@ -189,8 +216,8 @@ describe('Property 8: Goal Generator Idempotence', () => {
         expect(goals1.length).toBe(goals2.length);
 
         // Extract structural tuples (ignoring generated UUIDs)
-        const toTuple = (g: { anchorNodeId: string; targetRelation: string; targetType: string; kind: string }) =>
-          `${g.anchorNodeId}::${g.targetRelation}::${g.targetType}::${g.kind}`;
+        const toTuple = (g: { anchorNodeId: string; targetRelation: string; targetType: string; kind: string; direction: string }) =>
+          `${g.anchorNodeId}::${g.targetRelation}::${g.targetType}::${g.kind}::${g.direction}`;
 
         const tuples1 = goals1.map(toTuple).sort();
         const tuples2 = goals2.map(toTuple).sort();

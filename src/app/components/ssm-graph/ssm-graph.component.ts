@@ -54,6 +54,7 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
   private simulation!: d3.Simulation<SimNode, SimEdge>;
   private edgeGroup!: d3.Selection<SVGGElement, unknown, null, undefined>;
   private nodeGroup!: d3.Selection<SVGGElement, unknown, null, undefined>;
+  private searchlightGroup!: d3.Selection<SVGGElement, unknown, null, undefined>;
   private simNodes: SimNode[] = [];
   private simEdges: SimEdge[] = [];
   private initialized = false;
@@ -101,9 +102,10 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
       .attr('height', '100%')
       .attr('fill', 'url(#grid-dots)');
 
-    // Layer groups: edges below nodes
+    // Layer groups: edges below nodes, searchlight on top of everything
     this.edgeGroup = this.svg.append('g').attr('class', 'edges-layer');
     this.nodeGroup = this.svg.append('g').attr('class', 'nodes-layer');
+    this.searchlightGroup = this.svg.append('g').attr('class', 'searchlight-layer');
 
     // Initialize D3 force simulation
     this.simulation = d3.forceSimulation<SimNode, SimEdge>()
@@ -115,17 +117,26 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
 
     this.initialized = true;
 
-    // If inputs arrived before init, render now
+    // Always attempt an initial render — if nodes arrived before init
+    // (via ngOnChanges that was skipped because initialized was false),
+    // this catches them. If nodes are empty, updateGraph is a no-op
+    // (D3 data join with empty array just clears any existing elements).
     if (this.nodes.length > 0 || this.edges.length > 0) {
-      this.updateGraph();
+      setTimeout(() => this.updateGraph(), 0);
     }
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (!this.initialized) { return; }
+    if (!this.initialized) {
+      // D3 not ready yet — queue the update for after init
+      return;
+    }
 
     if (changes['nodes'] || changes['edges']) {
-      this.updateGraph();
+      // Use setTimeout(0) to ensure D3 runs outside Angular's change detection
+      // cycle, preventing "ExpressionChangedAfterItHasBeenChecked" errors
+      // and ensuring the SVG element has its final dimensions
+      setTimeout(() => this.updateGraph(), 0);
     }
 
     if (changes['activeGoal']) {
@@ -150,6 +161,19 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
   // ── Task 8.2: Enter/Update/Exit ──────────────────────────────────
 
   private updateGraph(): void {
+    // Recalculate dimensions in case the container resized since init
+    // (e.g., CSS Grid hadn't laid out yet when ngAfterViewInit fired)
+    const el = this.svgRef.nativeElement;
+    const newWidth = el.clientWidth || this.width;
+    const newHeight = el.clientHeight || this.height;
+    if (newWidth !== this.width || newHeight !== this.height) {
+      this.width = newWidth;
+      this.height = newHeight;
+      (this.simulation.force('center') as d3.ForceCenter<SimNode>)
+        .x(this.width / 2)
+        .y(this.height / 2);
+    }
+
     this.mergeSimNodes();
     this.mergeSimEdges();
 
@@ -210,11 +234,13 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
     // Update label text
     nodeMerge.select('text').text((d: SimNode) => d.label);
 
-    // Restart simulation
+    // Restart simulation with full energy so forces (especially forceCenter)
+    // actually move nodes into position. alpha(1) is critical for the first
+    // node — alpha(0.5) doesn't generate enough ticks to converge.
     this.simulation.nodes(this.simNodes);
     (this.simulation.force('link') as d3.ForceLink<SimNode, SimEdge>)
       .links(this.simEdges);
-    this.simulation.alpha(0.5).restart();
+    this.simulation.alpha(1).restart();
 
     // Apply searchlight + selection after graph update
     this.updateSearchlight();
@@ -234,18 +260,27 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         prev.status = n.status;
         return prev;
       }
-      return { ...n } as SimNode;
+      // New node — initialize position near center with slight jitter
+      // to prevent all new nodes from stacking at the exact same point
+      return {
+        ...n,
+        x: this.width / 2 + (Math.random() - 0.5) * 50,
+        y: this.height / 2 + (Math.random() - 0.5) * 50,
+      } as SimNode;
     });
   }
 
-  /** Merge incoming edges into simEdges. */
+  /** Merge incoming edges into simEdges, filtering out edges with missing endpoints. */
   private mergeSimEdges(): void {
-    this.simEdges = this.edges.map(e => ({
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      relationType: e.relationType,
-    } as SimEdge));
+    const nodeIds = new Set(this.simNodes.map(n => n.id));
+    this.simEdges = this.edges
+      .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+      .map(e => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        relationType: e.relationType,
+      } as SimEdge));
   }
 
   // ── Task 8.3: Drag behavior and node click ───────────────────────
@@ -286,21 +321,90 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
     // Update node positions
     this.nodeGroup.selectAll<SVGGElement, SimNode>('g.node-group')
       .attr('transform', (d: SimNode) => `translate(${d.x ?? 0},${d.y ?? 0})`);
+
+    // Update searchlight ring position to track the active node.
+    // Only update if no transition is active (transition handles its own interpolation).
+    if (this.activeGoal) {
+      const target = this.simNodes.find(n => n.id === this.activeGoal!.anchorNodeId);
+      if (target) {
+        const ring = this.searchlightGroup.select<SVGCircleElement>('circle.searchlight-ring');
+        if (!ring.empty()) {
+          const node = ring.node();
+          // Check if a D3 transition is active on this element
+          const hasTransition = node && (node as any).__transition;
+          if (!hasTransition) {
+            ring.attr('cx', target.x ?? 0).attr('cy', target.y ?? 0);
+          }
+        }
+      }
+    }
   }
 
-  // ── Task 8.4: Searchlight Effect ─────────────────────────────────
+  // ── Searchlight Effect ────────────────────────────────────────────
+
+  /** The node ID the searchlight was last positioned on. */
+  private searchlightCurrentNodeId: string | null = null;
 
   private updateSearchlight(): void {
-    // Remove searchlight from all nodes
-    this.nodeGroup.selectAll('g.node-group')
-      .classed('searchlight-active', false);
+    // Clear active-edge highlighting from previous transit
+    this.edgeGroup.selectAll('g.edge-group')
+      .classed('edge-active', false);
 
-    // Apply searchlight to active goal's anchor node
-    if (this.activeGoal) {
-      this.nodeGroup.selectAll<SVGGElement, SimNode>('g.node-group')
-        .filter((d: SimNode) => d.id === this.activeGoal!.anchorNodeId)
-        .classed('searchlight-active', true);
+    if (!this.activeGoal) {
+      this.searchlightGroup.selectAll('*').remove();
+      this.searchlightCurrentNodeId = null;
+      return;
     }
+
+    const targetNodeId = this.activeGoal.anchorNodeId;
+    const target = this.simNodes.find(n => n.id === targetNodeId);
+    if (!target) { return; }
+
+    const tx = target.x ?? 0;
+    const ty = target.y ?? 0;
+
+    // If the ring doesn't exist yet, create it at the target position
+    let ring = this.searchlightGroup.select<SVGCircleElement>('circle.searchlight-ring');
+    if (ring.empty()) {
+      this.searchlightGroup.append('circle')
+        .attr('class', 'searchlight-ring')
+        .attr('cx', tx)
+        .attr('cy', ty)
+        .attr('r', 30)
+        .attr('fill', 'none');
+      this.searchlightCurrentNodeId = targetNodeId;
+      return;
+    }
+
+    // If the target hasn't changed, nothing to animate
+    if (this.searchlightCurrentNodeId === targetNodeId) { return; }
+
+    // Highlight the connecting edge during transit
+    const prevId = this.searchlightCurrentNodeId;
+    if (prevId) {
+      this.edgeGroup.selectAll<SVGGElement, SimEdge>('g.edge-group')
+        .filter((d: SimEdge) => {
+          const srcId = typeof d.source === 'string' ? d.source : (d.source as SimNode).id;
+          const tgtId = typeof d.target === 'string' ? d.target : (d.target as SimNode).id;
+          return (srcId === prevId && tgtId === targetNodeId) ||
+                 (srcId === targetNodeId && tgtId === prevId);
+        })
+        .classed('edge-active', true);
+    }
+
+    // Animate the ring from current position to the new target
+    ring.transition()
+      .duration(500)
+      .ease(d3.easeCubicInOut)
+      .attr('cx', tx)
+      .attr('cy', ty)
+      .on('end', () => {
+        // Clear edge highlight after transit completes
+        this.edgeGroup.selectAll('g.edge-group')
+          .classed('edge-active', false);
+      });
+
+    this.searchlightCurrentNodeId = targetNodeId;
   }
 
   private updateSelection(): void {

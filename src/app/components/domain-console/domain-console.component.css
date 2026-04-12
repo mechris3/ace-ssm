@@ -64,6 +64,28 @@ textarea {
   border-color: var(--color-action-primary);
 }
 
+.btn-row {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.btn-row .btn {
+  flex: 1;
+  margin-top: 0;
+}
+
+.btn-save {
+  background: var(--bg-tertiary);
+  border-color: var(--color-confirmed);
+  color: var(--color-confirmed);
+}
+
+.btn-save:hover {
+  background: var(--color-confirmed);
+  color: var(--bg-primary);
+}
+
 .error {
   margin-top: 4px;
   padding: 6px 8px;

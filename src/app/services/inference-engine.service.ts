@@ -1,31 +1,22 @@
 /**
  * @fileoverview Inference Engine Service — the orchestrator of the Triple-Operator cycle.
+ * [Ref: MD Sec 4 - Engine Orchestration]
  *
- * This service wires together the Pacer (timing), the three pure operators
- * (Goal Generator → Search Operator → Knowledge Operator), and the NgRx store
- * (state management). On each pulse from the Pacer, it:
+ * Wires together the Pacer (timing), the three pure operators
+ * (Goal Generator → Search Operator → Knowledge Operator), and the NgRx
+ * store (state management). On each pulse it:
  *
- * 1. Snapshots the current state from all relevant store slices
- * 2. Runs the Goal Generator to detect gaps
- * 3. Runs the Search Operator to pick the best goal
- * 4. Runs the Knowledge Operator to resolve it
- * 5. Dispatches the appropriate NgRx action based on the result
+ *   1. Snapshots all store slices           [Ref: MD Sec 4.3 Step 1]
+ *   2. Runs the Goal Generator              [Ref: MD Sec 4.3 Step 3]
+ *   3. Runs the Search Operator             [Ref: MD Sec 4.3 Step 4]
+ *   4. Runs the Knowledge Operator          [Ref: MD Sec 4.3 Step 6]
+ *   5. Dispatches the appropriate action    [Ref: MD Sec 4.3 Step 7]
+ *   6. Checks for stall / loop break       [Ref: MD Sec 4.7]
+ *   7. Checks for finding confirmation      [Ref: MD Sec 4.3 Step 8]
  *
- * The orchestrator is the only component that has side effects (store dispatches
+ * The orchestrator is the ONLY component with side effects (store dispatches
  * and pacer control). The three operators remain pure functions.
- *
- * @remarks
- * DESIGN DECISION: The operators are exposed as instance methods (`this.generateGoals`,
- * `this.scoreGoals`, `this.resolveGoal`) that delegate to the pure functions.
- * This indirection exists solely for **testability** — tests can spy on or
- * override these methods to inject controlled behavior without mocking the
- * pure function imports. The methods add no logic; they are transparent wrappers.
- *
- * DESIGN DECISION: The orchestration pipeline uses `withLatestFrom` (not `combineLatest`)
- * because the Pacer pulse is the sole trigger. We don't want store changes to
- * trigger inference — only clock ticks should. `withLatestFrom` samples the
- * store state at the moment of each pulse without subscribing to store changes
- * as a trigger source.
+ * [Ref: MD Sec 10 Invariant 6 - Pure Operators]
  */
 
 import { Injectable } from '@angular/core';
@@ -55,25 +46,31 @@ import * as EngineActions from '../store/engine/engine.actions';
 @Injectable({ providedIn: 'root' })
 export class InferenceEngineService {
   /**
-   * The main orchestration Observable. Must be subscribed to (typically in
-   * AppComponent) for the engine to function. Each emission represents one
-   * complete Triple-Operator cycle.
+   * The main orchestration Observable.
+   * [Ref: MD Sec 4.2 - Pacer / MD Sec 10 Invariant 7 - Clock-driven inference]
    *
-   * @remarks
-   * DESIGN DECISION: `orchestrate$` is a public Observable, not an auto-started
-   * effect. The subscription is managed by AppComponent using `takeUntilDestroyed`,
-   * which ties the engine's lifecycle to the Angular component tree. This avoids
-   * orphaned subscriptions and makes the engine's activation explicit.
+   * WHY: `orchestrate$` is a public Observable, not an auto-started effect.
+   * The subscription is managed by AppComponent using `takeUntilDestroyed`,
+   * tying the engine's lifecycle to the Angular component tree.
    */
   public orchestrate$;
+
+  /**
+   * [Ref: MD Sec 4.7 - Stall Detection / Safety Valve]
+   * Tracks consecutive pulses that produced no new nodes.
+   * WHY: Prevents infinite loops when all goals resolve to NO_MATCH or
+   * edges-only PATCHes. After MAX_STALL_PULSES, the engine forces RESOLVED.
+   */
+  private stallCount = 0;
+  private static readonly MAX_STALL_PULSES = 10;
 
   constructor(
     private store: Store,
     private pacer: PacerService
   ) {
     this.orchestrate$ = this.pacer.pulse$.pipe(
-      // Sample all store slices at the moment of each pulse.
-      // DESIGN DECISION: withLatestFrom ensures the pulse is the sole trigger.
+      // [Ref: MD Sec 4.3 Step 1] Snapshot all store slices at pulse time.
+      // WHY: withLatestFrom ensures the pulse is the sole trigger.
       // Store changes alone do NOT trigger a cycle — only clock ticks do.
       withLatestFrom(
         this.store.select(selectSSMState),
@@ -82,9 +79,8 @@ export class InferenceEngineService {
         this.store.select(selectStrategy),
         this.store.select(selectEngineState)
       ),
-      // DESIGN DECISION: Only process pulses when the engine FSM is in THINKING state.
-      // This prevents stale pulses from being processed during IDLE, INQUIRY, or RESOLVED.
-      // The filter acts as a gate — pulses are silently dropped in non-THINKING states.
+      // [Ref: MD Sec 4.3 Step 2] Gate check — only THINKING state.
+      // WHY: Prevents stale pulses during IDLE, INQUIRY, or RESOLVED.
       filter(([_, _ssm, _ts, _kb, _strat, engineState]) =>
         engineState === EngineState.THINKING
       ),
@@ -96,17 +92,8 @@ export class InferenceEngineService {
 
   /**
    * Executes one complete Triple-Operator cycle for a single pulse.
-   *
-   * This method contains the core dispatch logic:
-   * - **PATCH** → Append new HYPOTHESIS nodes and edges to the SSM
-   * - **STATUS_UPGRADE_PATCH** → Promote a HYPOTHESIS to CONFIRMED
-   * - **INQUIRY_REQUIRED** → Create a QUESTION node, pause the engine
-   * - **No goals** → Transition to RESOLVED (SSM is fully saturated)
-   *
-   * @param ssm - Current SSM state snapshot
-   * @param taskStructure - Task Structure definition
-   * @param kb - All Knowledge Base fragments
-   * @param strategy - Current strategy with weights and name
+   * [Ref: MD Sec 4.3 - Pulse Processing Pipeline]
+   * [Ref: MD Sec 1.3 - One Winner Per Heartbeat]
    */
   processPulse(
     ssm: ISSMState,
@@ -114,43 +101,75 @@ export class InferenceEngineService {
     kb: IKnowledgeFragment[],
     strategy: IStrategy
   ): void {
-    // Step 1: Goal Generation — detect gaps and upgrade opportunities
+
+    // ═══════════════════════════════════════════════════════════════
+    // Step 3: Goal Generation
+    // [Ref: MD Sec 4.3 Step 3 / MD Sec 3.1 - Goal Generator]
+    // ═══════════════════════════════════════════════════════════════
     const goals = this.generateGoals(ssm, taskStructure);
 
     if (goals.length === 0) {
-      // No goals remain — the SSM is fully saturated. Transition to RESOLVED
-      // and stop the pacer. The user must reset to start a new inference cycle.
+      // [Ref: MD Sec 4.1] THINKING → RESOLVED: SSM is fully saturated.
       this.store.dispatch(EngineActions.setActiveGoal({ goal: null }));
       this.store.dispatch(EngineActions.engineResolved());
       this.pacer.pause();
       return;
     }
 
-    // Step 2: Search Operator — score all goals and pick the winner
+    // ═══════════════════════════════════════════════════════════════
+    // Step 4: Goal Scoring — pick the winner
+    // [Ref: MD Sec 4.3 Step 4 / MD Sec 3.2 - Search Operator]
+    // ═══════════════════════════════════════════════════════════════
     const { selectedGoal, rationale } = this.scoreGoals(goals, ssm, kb, strategy);
 
-    // Dispatch activeGoal so the Searchlight can highlight the anchor node
+    // [Ref: MD Sec 4.3 Step 5] Searchlight — highlight the anchor node
     this.store.dispatch(EngineActions.setActiveGoal({ goal: selectedGoal }));
 
-    // Step 3: Knowledge Operator — resolve the winning goal against the KB
-    const result = this.resolveGoal(selectedGoal, kb);
+    // ═══════════════════════════════════════════════════════════════
+    // Step 6: Goal Resolution
+    // [Ref: MD Sec 4.3 Step 6 / MD Sec 3.3 - Knowledge Operator]
+    // ═══════════════════════════════════════════════════════════════
+    const result = this.resolveGoal(selectedGoal, kb, ssm.nodes);
 
-    // Step 4: Dispatch based on result type.
-    // Each branch fills in the `actionTaken` field of the rationale with a
-    // human-readable description of what actually happened.
+    // ═══════════════════════════════════════════════════════════════
+    // Step 7: Dispatch based on result type
+    // [Ref: MD Sec 4.3 Step 7]
+    // ═══════════════════════════════════════════════════════════════
     if (result.type === 'PATCH') {
-      // KB fragments matched — append new HYPOTHESIS nodes to the SSM
+      // [Ref: MD Sec 3.3.2 / 3.3.3 / 4.6]
+      // actionTaken uses "Expanded" for new nodes, "Linked" for graph merges
+      // to match the terminology in the MD file.
       const reasoningStep: IReasoningStep = {
         ...rationale,
-        actionTaken: `Expanded "${selectedGoal.anchorLabel}" via ${selectedGoal.targetRelation} → ${result.nodes.map(n => n.label).join(', ')}`,
+        actionTaken: result.nodes.length > 0
+          ? `Expanded "${selectedGoal.anchorLabel}" via ${selectedGoal.targetRelation} → ${result.nodes.map(n => n.label).join(', ')}`
+          : `Linked "${selectedGoal.anchorLabel}" to existing nodes via ${result.edges.map(e => e.relationType).join(', ')}`,
       };
+
+      // [Ref: MD Sec 4.5 - Goal Relation Coverage / Exhaustion]
+      // WHY: If the broad fallback resolved the goal using a different
+      // relation type, the Goal Generator would still see the original
+      // relation as unexplored and regenerate the same goal → infinite loop.
+      // The placeholder edge marks the original relation as exhausted.
+      const patchEdges = [...result.edges];
+      const goalRelationCovered = result.edges.some(e => e.relationType === selectedGoal.targetRelation);
+      if (!goalRelationCovered) {
+        patchEdges.push({
+          id: `edge_${crypto.randomUUID()}`,
+          source: selectedGoal.direction === 'reverse' ? `placeholder_${crypto.randomUUID()}` : selectedGoal.anchorNodeId,
+          target: selectedGoal.direction === 'reverse' ? selectedGoal.anchorNodeId : `placeholder_${crypto.randomUUID()}`,
+          relationType: selectedGoal.targetRelation,
+        });
+      }
+
       this.store.dispatch(SSMActions.applyPatch({
         nodes: result.nodes,
-        edges: result.edges,
+        edges: patchEdges,
         reasoningStep,
       }));
+
     } else if (result.type === 'STATUS_UPGRADE_PATCH') {
-      // All CONFIRMED_BY targets are CONFIRMED — promote the hypothesis
+      // [Ref: MD Sec 3.3.1 / 3.1.2]
       const reasoningStep: IReasoningStep = {
         ...rationale,
         actionTaken: `Promoted "${selectedGoal.anchorLabel}" from HYPOTHESIS to CONFIRMED`,
@@ -159,57 +178,134 @@ export class InferenceEngineService {
         nodeId: result.nodeId,
         reasoningStep,
       }));
-    } else if (result.type === 'INQUIRY_REQUIRED') {
-      // No KB fragments matched — create a QUESTION node and pause for user input.
-      // The QUESTION node's label is a human-readable prompt (e.g., "? CAUSES of Fever").
-      const questionNode: ISSMNode = {
-        id: `node_${crypto.randomUUID()}`,
-        label: `? ${selectedGoal.targetRelation} of ${selectedGoal.anchorLabel}`,
-        type: selectedGoal.targetType,
-        status: 'QUESTION',
-      };
-      const edge: ISSMEdge = {
+
+    } else if (result.type === 'NO_MATCH') {
+      // [Ref: MD Sec 4.4 - NO_MATCH Handling / Placeholder Edges]
+      // WHY: The KB is ground truth (Sec 10 Invariant 4). A missing match
+      // means this relation doesn't exist. The placeholder edge prevents
+      // the Goal Generator from detecting the same gap again.
+      const placeholderEdge: ISSMEdge = {
         id: `edge_${crypto.randomUUID()}`,
-        source: selectedGoal.anchorNodeId,
-        target: questionNode.id,
+        source: selectedGoal.direction === 'reverse' ? `placeholder_${crypto.randomUUID()}` : selectedGoal.anchorNodeId,
+        target: selectedGoal.direction === 'reverse' ? selectedGoal.anchorNodeId : `placeholder_${crypto.randomUUID()}`,
         relationType: selectedGoal.targetRelation,
       };
       const reasoningStep: IReasoningStep = {
         ...rationale,
-        actionTaken: `Inquiry required: "${questionNode.label}"`,
+        actionTaken: `No KB match for "${selectedGoal.anchorLabel}" → ${selectedGoal.targetRelation}; skipped (KB is truth)`,
       };
-      // Dispatch the inquiry to the SSM (adds QUESTION node + edge + history entry)
-      this.store.dispatch(SSMActions.openInquiry({ questionNode, edge, reasoningStep }));
-      // Transition the engine FSM to INQUIRY state
+      this.store.dispatch(SSMActions.applyPatch({
+        nodes: [],
+        edges: [placeholderEdge],
+        reasoningStep,
+      }));
+
+    } else if (result.type === 'INQUIRY_REQUIRED') {
+      // Legacy fallback — treat identically to NO_MATCH.
+      const placeholderEdge: ISSMEdge = {
+        id: `edge_${crypto.randomUUID()}`,
+        source: selectedGoal.direction === 'reverse' ? `placeholder_${crypto.randomUUID()}` : selectedGoal.anchorNodeId,
+        target: selectedGoal.direction === 'reverse' ? selectedGoal.anchorNodeId : `placeholder_${crypto.randomUUID()}`,
+        relationType: selectedGoal.targetRelation,
+      };
+      const reasoningStep: IReasoningStep = {
+        ...rationale,
+        actionTaken: `No KB match for "${selectedGoal.anchorLabel}" → ${selectedGoal.targetRelation}; skipped (KB is truth)`,
+      };
+      this.store.dispatch(SSMActions.applyPatch({
+        nodes: [],
+        edges: [placeholderEdge],
+        reasoningStep,
+      }));
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Stall Detection — Safety Valve
+    // [Ref: MD Sec 4.7 - Stall Detection / Loop Break]
+    //
+    // WHY: Without this, the engine could spin indefinitely on goals
+    // that only produce placeholder edges or edges to existing nodes.
+    // After MAX_STALL_PULSES consecutive pulses with zero new nodes,
+    // force RESOLVED to break the loop.
+    // ═══════════════════════════════════════════════════════════════
+    const producedNewNodes = result.type === 'PATCH' && result.nodes.length > 0;
+    if (producedNewNodes) {
+      this.stallCount = 0;
+    } else {
+      this.stallCount++;
+      if (this.stallCount >= InferenceEngineService.MAX_STALL_PULSES) {
+        console.warn(
+          `[ACE-SSM] Logic exhaustion: ${this.stallCount} consecutive pulses ` +
+          `with no new nodes. Forcing RESOLVED. [Ref: MD Sec 4.7]`
+        );
+        this.store.dispatch(EngineActions.setActiveGoal({ goal: null }));
+        this.store.dispatch(EngineActions.engineResolved());
+        this.pacer.pause();
+        this.stallCount = 0;
+        return;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Finding Confirmation Check
+    // [Ref: MD Sec 4.3 Step 8 / MD Sec 5.1 - Trigger Condition]
+    //
+    // WHY: The engine must pause for user input when it spawns a
+    // hypothesis that requires clinical observation. This is what
+    // makes the system interactive rather than fully automated.
+    // [Ref: MD Sec 10 Invariant 10 - Finding confirmation is user-driven]
+    // ═══════════════════════════════════════════════════════════════
+    const confirmableNodes: ISSMNode[] = [];
+
+    // Check newly spawned nodes from a PATCH result
+    if (result.type === 'PATCH') {
+      confirmableNodes.push(
+        ...result.nodes.filter(n => n.status === 'HYPOTHESIS' && n.canBeConfirmed === true)
+      );
+    }
+
+    // Check the anchor node (from the SSM snapshot taken at pulse start)
+    const anchorNode = ssm.nodes.find(n => n.id === selectedGoal.anchorNodeId);
+    if (
+      anchorNode &&
+      anchorNode.status === 'HYPOTHESIS' &&
+      anchorNode.canBeConfirmed === true
+    ) {
+      confirmableNodes.push(anchorNode);
+    }
+
+    if (confirmableNodes.length > 0) {
+      const nodeToConfirm = confirmableNodes[0];
+      // [Ref: MD Sec 1.3] This is the second dispatch in the same pulse —
+      // the finding inquiry produces its own separate ReasoningStep.
+      const confirmReasoningStep: IReasoningStep = {
+        ...rationale,
+        actionTaken: `Observation required: "${nodeToConfirm.label}". Awaiting user confirmation.`,
+      };
+      this.store.dispatch(SSMActions.openFindingInquiry({
+        nodeId: nodeToConfirm.id,
+        reasoningStep: confirmReasoningStep,
+      }));
+      // [Ref: MD Sec 4.1] THINKING → INQUIRY
       this.store.dispatch(EngineActions.engineInquiry());
-      // Stop the pacer — inference cannot continue until the user answers
       this.pacer.pause();
     }
   }
 
-  /**
-   * Wrapper around the pure `generateGoals` function for testability.
-   * Tests can spy on this method to inject controlled goal lists.
-   */
+  /** Testability wrapper for Goal Generator. [Ref: MD Sec 3.1] */
   generateGoals(ssm: ISSMState, taskStructure: ITaskStructure): IGoal[] {
     return generateGoals(ssm, taskStructure);
   }
 
-  /**
-   * Wrapper around the pure `scoreGoals` function for testability.
-   * Tests can spy on this method to inject controlled scoring results.
-   */
+  /** Testability wrapper for Search Operator. [Ref: MD Sec 3.2] */
   scoreGoals(
     goals: IGoal[], ssm: ISSMState, kb: IKnowledgeFragment[], strategy: IStrategy
   ): { selectedGoal: IGoal; rationale: IReasoningStep } {
     return scoreGoals(goals, ssm, kb, strategy);
   }
 
-  /**
-   * Wrapper around the pure `resolveGoal` function for testability.
-   * Tests can spy on this method to inject controlled resolution results.
-   */
-  resolveGoal(goal: IGoal, kb: IKnowledgeFragment[]) {
-    return resolveGoal(goal, kb);
+  /** Testability wrapper for Knowledge Operator. [Ref: MD Sec 3.3] */
+  resolveGoal(goal: IGoal, kb: IKnowledgeFragment[], existingNodes: ISSMNode[] = []) {
+    return resolveGoal(goal, kb, existingNodes);
   }
 }

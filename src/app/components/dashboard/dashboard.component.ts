@@ -9,10 +9,11 @@ import { DomainConsoleComponent } from '../domain-console/domain-console.compone
 import { SSMGraphComponent } from '../ssm-graph/ssm-graph.component';
 import { NodeInspectorComponent } from '../node-inspector/node-inspector.component';
 import { AuditTrailComponent } from '../audit-trail/audit-trail.component';
-import { InquiryOverlayComponent, InquiryResolution } from '../inquiry-overlay/inquiry-overlay.component';
+import { InquiryOverlayComponent, FindingResolution } from '../inquiry-overlay/inquiry-overlay.component';
 import { ISSMNode } from '../../models/ssm.model';
 import { IReasoningStep } from '../../models/strategy.model';
-import { selectRecentHistory, selectRenderedHistory } from '../../store/ssm/ssm.selectors';
+import { selectRecentHistory, selectRenderedHistory, selectPendingFindingNode } from '../../store/ssm/ssm.selectors';
+import { first } from 'rxjs/operators';
 
 @Component({
   selector: 'app-dashboard',
@@ -37,6 +38,7 @@ export class DashboardComponent {
   vm$: Observable<IViewModel> = this.facade.viewModel$;
   renderedSteps$: Observable<IReasoningStep[]> = this.store.select(selectRenderedHistory);
   recentSteps$: Observable<IReasoningStep[]> = this.store.select(selectRecentHistory);
+  pendingFindingNode$: Observable<ISSMNode | null> = this.store.select(selectPendingFindingNode);
   resetOnLoad = true;
 
   /** Node ID to highlight in the graph (set when user clicks an Audit Trail step). */
@@ -50,27 +52,37 @@ export class DashboardComponent {
     return vm.ssm.nodes.find(n => n.id === vm.selectedNodeId) ?? null;
   }
 
-  getQuestionNode(vm: IViewModel): ISSMNode | null {
-    return vm.ssm.nodes.find(n => n.status === 'QUESTION') ?? null;
-  }
-
-  handleLoadTaskStructure(json: string, vm: IViewModel): void {
+  handleLoadDomain(json: string): void {
     if (this.resetOnLoad) { this.facade.reset(); }
-    this.facade.loadTaskStructure(json);
+    this.facade.loadDomain(json);
   }
 
-  handleLoadKnowledgeBase(json: string, vm: IViewModel): void {
-    if (this.resetOnLoad) { this.facade.reset(); }
-    this.facade.loadKnowledgeBase(json);
+  handleSaveDomain(): void {
+    this.facade.exportDomain('session-' + Date.now(), 'Diagnostic Session')
+      .pipe(first())
+      .subscribe(json => {
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ace-ssm-session-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
   }
 
-  handleResolve(resolution: InquiryResolution): void {
-    this.facade.resolveInquiry(
-      resolution.nodeId,
-      resolution.status,
-      resolution.label,
-      resolution.auditText,
-    );
+  handleResolve(resolution: FindingResolution): void {
+    switch (resolution.action) {
+      case 'confirm':
+        this.facade.confirmFinding(resolution.nodeId, resolution.nodeLabel);
+        break;
+      case 'refute':
+        this.facade.refuteFinding(resolution.nodeId, resolution.nodeLabel);
+        break;
+      case 'skip':
+        this.facade.skipFinding(resolution.nodeId, resolution.nodeLabel);
+        break;
+    }
   }
 
   /** Audit Trail step clicked → highlight the anchor node in the graph + select it. */

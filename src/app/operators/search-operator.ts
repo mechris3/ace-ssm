@@ -1,23 +1,13 @@
 /**
- * @fileoverview Search Operator — second operator in the Triple-Operator cycle.
+ * @fileoverview Search Operator — Operator 2 of the Triple-Operator cycle.
+ * [Ref: MD Sec 3.2 - Search Operator]
  *
- * The Search Operator scores and ranks all active goals using a weighted
- * heuristic formula derived from Knowledge Base metadata and the current
- * Strategy. It returns the single highest-scoring goal along with a
- * Rationale Packet that explains exactly why that goal won.
+ * Scores and ranks all active goals using a weighted heuristic formula
+ * derived from KB metadata and the current Strategy. Returns the single
+ * highest-scoring goal along with a Rationale Packet explaining why it won.
  *
- * This is the engine's "decision-making" step — it determines WHICH gap
- * to fill next. The scoring formula is intentionally simple and transparent
- * (a linear combination of three factors) so that users can understand and
- * tune the engine's behavior via strategy weights.
- *
- * This is a **pure function** — no side effects, no service dependencies.
- *
- * @remarks
- * DESIGN DECISION: The Search Operator performs a read-only query against
- * the KB to extract metadata for scoring, but it never mutates the KB or
- * SSM. The actual KB-to-SSM bridging (creating nodes) is the Knowledge
- * Operator's job. This separation keeps each operator's responsibility clear.
+ * Pure function — no side effects, no service dependencies.
+ * [Ref: MD Sec 10 Invariant 6 - Pure Operators]
  */
 
 import { IGoal, ISSMState } from '../models/ssm.model';
@@ -26,34 +16,15 @@ import { IStrategy, IRationaleFactor, IReasoningStep } from '../models/strategy.
 
 /**
  * Scores all goals and returns the highest-scoring one with a full rationale.
- *
- * **Scoring formula for EXPAND goals:**
- * ```
- * rawScore = (MAX(urgency) × 100 × urgency_weight)
- *          + (parsimony_bonus × parsimony_weight)
- *          - (MEAN(inquiryCost) × 100 × costAversion_weight)
- * ```
- *
- * **Scoring formula for STATUS_UPGRADE goals:**
- * ```
- * rawScore = 200 × parsimony_weight
- * ```
- *
- * **UNKNOWN_Anchor_Penalty:** If the anchor node has status UNKNOWN,
- * `totalScore = rawScore × unknownPenalty` (default 0.05, i.e., 95% reduction).
+ * [Ref: MD Sec 3.2.1 - Scoring Formula for EXPAND Goals]
+ * [Ref: MD Sec 3.2.2 - Scoring Formula for STATUS_UPGRADE Goals]
  *
  * @param goals - Non-empty array of goals from the Goal Generator
- * @param ssm - Current SSM state snapshot
- * @param kb - All Knowledge Base fragments
+ * @param ssm - Current SSM state snapshot (Layer 3)
+ * @param kb - All Knowledge Base fragments (Layer 2)
  * @param strategy - Current strategy with weights and name
  * @param unknownPenalty - Multiplicative penalty for UNKNOWN anchors (default 0.05)
  * @returns The winning goal and its complete Rationale Packet
- *
- * @remarks
- * DESIGN DECISION: `actionTaken` is left as an empty string in the returned
- * rationale. The Inference Engine orchestrator fills it in AFTER the Knowledge
- * Operator returns, because only then does the engine know what actually happened
- * (PATCH, STATUS_UPGRADE, or INQUIRY). This avoids speculative descriptions.
  */
 export function scoreGoals(
   goals: IGoal[],
@@ -66,12 +37,15 @@ export function scoreGoals(
     const anchor = ssm.nodes.find(n => n.id === goal.anchorNodeId);
     const factors: IRationaleFactor[] = [];
 
+    // ═════════════════════════════════════════════════════════════════
+    // STATUS_UPGRADE Scoring
+    // [Ref: MD Sec 3.2.2 - Scoring Formula for STATUS_UPGRADE Goals]
+    // rawScore = 200 × weights.parsimony
+    // WHY: The 4× multiplier over EXPAND parsimony (50) ensures
+    // promotion is strongly preferred — "confirm before explore".
+    // [Ref: MD Sec 10 Invariant 9 - Confirm before explore]
+    // ═════════════════════════════════════════════════════════════════
     if (goal.kind === 'STATUS_UPGRADE') {
-      // DESIGN DECISION: STATUS_UPGRADE goals receive a fixed parsimony score
-      // of 200 (vs. 50 for EXPAND parsimony bonus). The 4× multiplier ensures
-      // that promotion is strongly preferred when conditions are met, because
-      // converging the model (confirming a hypothesis) is always more valuable
-      // than expanding it further. This implements the "confirm before explore" heuristic.
       const parsimonyScore = 200 * strategy.weights.parsimony;
       factors.push({
         label: 'Status Upgrade Parsimony',
@@ -80,53 +54,85 @@ export function scoreGoals(
       });
       const rawScore = parsimonyScore;
 
-      // Apply UNKNOWN penalty if the anchor is somehow UNKNOWN
-      // (shouldn't happen for STATUS_UPGRADE since we only generate these
-      // for HYPOTHESIS nodes, but defensive coding for consistency)
-      const totalScore = anchor?.status === 'UNKNOWN'
-        ? rawScore * unknownPenalty
-        : rawScore;
+      // [Ref: MD Sec 3.2.3 - Anchor Status Penalties]
+      let totalScore = rawScore;
+      if (anchor?.status === 'REFUTED') {
+        totalScore = rawScore * 0.01;
+      } else if (anchor?.status === 'UNKNOWN') {
+        totalScore = rawScore * unknownPenalty;
+      }
       return { goal, totalScore, rawScore, factors };
     }
 
-    // --- EXPAND goal scoring ---
+    // ═════════════════════════════════════════════════════════════════
+    // EXPAND Goal Scoring
+    // [Ref: MD Sec 3.2.1 - Scoring Formula for EXPAND Goals]
+    // rawScore = (MAX(urgency) × 100 × urgencyWeight)
+    //          + (parsimony_bonus × parsimonyWeight)
+    //          - (MEAN(inquiryCost) × 100 × costAversionWeight)
+    // ═════════════════════════════════════════════════════════════════
+    const isReverse = goal.direction === 'reverse';
 
-    // DESIGN DECISION: Match KB fragments by label + relation, same as the
-    // Knowledge Operator will do. This ensures the Search Operator's score
-    // reflects what the Knowledge Operator will actually find.
-    const matchingFragments = kb.filter(
-      f => f.subject === goal.anchorLabel && f.relation === goal.targetRelation
-    );
+    // [Ref: MD Sec 10 Invariant 3 - Dual-key KB matching]
+    const anchorKeys = new Set([goal.anchorLabel, goal.anchorNodeId]);
 
-    // DESIGN DECISION: MAX(urgency), not MEAN. The engine must pivot to the
-    // most dangerous possibility immediately to satisfy the "Safety-First"
-    // requirement. If one KB fragment says "Fever CAUSES Bacterial Meningitis"
-    // with urgency=1.0 and another says "Fever CAUSES Common Cold" with
-    // urgency=0.1, the goal should score as if urgency=1.0. Using MEAN would
-    // dilute the life-threatening signal.
+    // [Ref: MD Sec 3.3.2 - Cascading Search] mirrors Knowledge Operator
+    // Priority 1: Exact relation match. Priority 2: Broad fallback.
+    let matchingFragments = isReverse
+      ? kb.filter(f => anchorKeys.has(f.object) && f.relation === goal.targetRelation)
+      : kb.filter(f => anchorKeys.has(f.subject) && f.relation === goal.targetRelation);
+
+    if (matchingFragments.length === 0) {
+      matchingFragments = isReverse
+        ? kb.filter(f => anchorKeys.has(f.object))
+        : kb.filter(f => anchorKeys.has(f.subject));
+    }
+
+    // ── Clinical Urgency ──────────────────────────────────────────
+    // [Ref: MD Sec 3.2.1] MAX(urgency), not MEAN.
+    // WHY: The engine must pivot to the most dangerous possibility
+    // immediately ("Safety-First"). MEAN would dilute a single
+    // life-threatening signal among benign alternatives.
     const maxUrgency = matchingFragments.length > 0
       ? Math.max(...matchingFragments.map(f => f.metadata.urgency))
       : 0;
 
-    // DESIGN DECISION: MEAN(inquiryCost), not MAX. Unlike urgency (where we
-    // must assume the worst case), cost is an expected-value calculation.
-    // The engine doesn't know which specific fragment will be relevant, so
-    // the average cost across all matching fragments is the best estimate.
+    // ── Inquiry Cost ──────────────────────────────────────────────
+    // [Ref: MD Sec 3.2.1] MEAN(inquiryCost), not MAX.
+    // WHY: Cost is an expected-value calculation — the engine doesn't
+    // know which specific fragment will be relevant, so the average
+    // across all matching fragments is the best estimate.
     const meanCost = matchingFragments.length > 0
       ? matchingFragments.reduce((sum, f) => sum + f.metadata.inquiryCost, 0) / matchingFragments.length
       : 0;
 
-    // Scale factors to comparable magnitudes (×100) then apply strategy weights
     const urgencyScore = maxUrgency * 100 * strategy.weights.urgency;
 
-    // DESIGN DECISION: Parsimony bonus is a fixed 50 points (before weight)
-    // awarded when the SSM already contains at least one node of the target type.
-    // This rewards goals that connect to existing knowledge rather than introducing
-    // entirely new entity types. The value 50 was chosen to be meaningful but not
-    // dominant — urgency (up to 100) can still override parsimony.
-    const parsimonyScore = ssm.nodes.some(n => n.type === goal.targetType)
+    // ── Parsimony ─────────────────────────────────────────────────
+    // [Ref: MD Sec 3.2.1 - Parsimony bonus]
+    // Base: 50 points if SSM already has a node of the target type.
+    // Multi-evidence bonus: +30 per additional CONFIRMED node that
+    // the candidate explains.
+    // WHY: Prioritizes Conditions that unify multiple confirmed
+    // findings (convergence/parsimony principle).
+    let parsimonyScore = ssm.nodes.some(n => n.type === goal.targetType)
       ? 50 * strategy.weights.parsimony
       : 0;
+
+    if (isReverse && matchingFragments.length > 0) {
+      const confirmedLabels = new Set(
+        ssm.nodes.filter(n => n.status === 'CONFIRMED').flatMap(n => [n.label, n.id])
+      );
+      for (const frag of matchingFragments) {
+        const candidateLabel = frag.subject;
+        const confirmedLinks = kb.filter(f =>
+          f.subject === candidateLabel && confirmedLabels.has(f.object)
+        ).length;
+        if (confirmedLinks > 1) {
+          parsimonyScore += (confirmedLinks - 1) * 30 * strategy.weights.parsimony;
+        }
+      }
+    }
 
     const costScore = meanCost * 100 * strategy.weights.costAversion;
 
@@ -138,28 +144,55 @@ export function scoreGoals(
 
     const rawScore = urgencyScore + parsimonyScore - costScore;
 
-    // DESIGN DECISION: UNKNOWN_Anchor_Penalty is multiplicative (0.05×), not
-    // additive. This ensures that goals anchored on UNKNOWN nodes are almost
-    // completely suppressed regardless of their raw score. An additive penalty
-    // could be overcome by high urgency, but a 95% multiplicative reduction
-    // effectively kills the branch. This implements the "dead hypothesis" behavior:
-    // if a mandatory finding is UNKNOWN, all downstream reasoning is suppressed.
-    const totalScore = anchor?.status === 'UNKNOWN'
-      ? rawScore * unknownPenalty
-      : rawScore;
+    // ═════════════════════════════════════════════════════════════════
+    // Anchor Status Penalties
+    // [Ref: MD Sec 3.2.3 - Anchor Status Penalties]
+    //
+    // REFUTED (0.01×): User explicitly rejected — branch is dead.
+    // UNKNOWN (0.05×): Unresolved — heavily suppressed.
+    // SKIPPED (−urgency): Deferred — loses urgency but keeps parsimony.
+    //
+    // WHY: Multiplicative penalties (REFUTED, UNKNOWN) cannot be
+    // overcome by high urgency. SKIPPED is subtractive so the goal
+    // can still compete on parsimony alone.
+    // [Ref: MD Sec 10 Invariant 8 - Status-based scoring penalties]
+    // ═════════════════════════════════════════════════════════════════
+    let totalScore = rawScore;
+    if (anchor?.status === 'REFUTED') {
+      totalScore = rawScore * 0.01;
+      factors.push({
+        label: 'Refuted Anchor Penalty',
+        impact: -(rawScore * 0.99),
+        explanation: `Anchor "${anchor.label}" was refuted by user — 99% penalty applied.`,
+      });
+    } else if (anchor?.status === 'UNKNOWN') {
+      totalScore = rawScore * unknownPenalty;
+    } else if (anchor?.status === 'SKIPPED') {
+      totalScore = rawScore - urgencyScore;
+      factors.push({
+        label: 'Skipped Anchor',
+        impact: -urgencyScore,
+        explanation: `Anchor "${anchor.label}" was skipped — urgency bonus removed for this cycle.`,
+      });
+    }
 
     return { goal, totalScore, rawScore, factors };
   });
 
-  // DESIGN DECISION: Stable sort (highest score first, ties broken by array order).
-  // JavaScript's Array.sort is not guaranteed stable in all engines, but modern
-  // engines (V8, SpiderMonkey) implement stable sort. Tie-breaking by array order
-  // means EXPAND goals (generated first) are preferred over STATUS_UPGRADE goals
-  // at equal scores, which is the desired behavior — expand before promote when
-  // scores are tied.
+  // ═══════════════════════════════════════════════════════════════════
+  // Winner Selection
+  // [Ref: MD Sec 3.2.4 - Tie-Breaking]
+  // WHY: Stable sort by descending score. Ties broken by array order,
+  // which means EXPAND goals (generated first) are preferred over
+  // STATUS_UPGRADE goals at equal scores.
+  // ═══════════════════════════════════════════════════════════════════
   scored.sort((a, b) => b.totalScore - a.totalScore);
   const winner = scored[0];
 
+  // [Ref: MD Sec 3.2.5 - Rationale Packet]
+  // WHY: actionTaken is left empty — the orchestrator fills it in AFTER
+  // the Knowledge Operator returns, because only then is the actual
+  // action known (Expanded, Linked, Promoted, or No KB match).
   return {
     selectedGoal: winner.goal,
     rationale: {
@@ -168,8 +201,6 @@ export function scoreGoals(
       totalScore: winner.totalScore,
       factors: winner.factors,
       strategyName: strategy.name,
-      // Left empty — the orchestrator fills this in after the Knowledge Operator
-      // returns, because only then is the actual action known.
       actionTaken: '',
     },
   };

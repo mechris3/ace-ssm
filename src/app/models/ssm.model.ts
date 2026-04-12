@@ -20,26 +20,23 @@
 import { IReasoningStep } from './strategy.model';
 
 /**
- * The four possible lifecycle states of an SSM node.
+ * The six possible lifecycle states of an SSM node.
  *
  * @remarks
- * DESIGN DECISION: Four states, not more. The POC deliberately omits a
- * "REFUTED" status — UNKNOWN is sufficient to block promotion and apply
- * the UNKNOWN_Anchor_Penalty (0.05×). This keeps the state machine simple
- * while still allowing dead hypotheses to be effectively killed by the
- * scoring penalty. A REFUTED status could be added later without breaking
- * the existing state transitions.
- *
  * - `HYPOTHESIS` — Spawned by the Knowledge Operator from KB fragments.
- *   Not yet confirmed; may be promoted via STATUS_UPGRADE or killed by UNKNOWN penalty.
- * - `CONFIRMED` — Either user-confirmed (via resolveInquiry) or promoted
+ *   Not yet confirmed; may be promoted via STATUS_UPGRADE or killed by penalty.
+ * - `CONFIRMED` — User-confirmed (via inquiry modal) or promoted
  *   (via STATUS_UPGRADE when all CONFIRMED_BY targets are CONFIRMED).
  * - `QUESTION` — Created by the Inference Engine when the Knowledge Operator
- *   returns INQUIRY_REQUIRED. Represents a gap the user must fill.
+ *   returns INQUIRY_REQUIRED. Represents a gap the user must fill (legacy).
  * - `UNKNOWN` — User explicitly marked a QUESTION as unknown. Blocks
  *   promotion chains and applies multiplicative penalty to downstream goals.
+ * - `REFUTED` — User explicitly rejected this finding via the inquiry modal.
+ *   Applies a 99% multiplicative penalty (0.01×) to all downstream goals.
+ * - `SKIPPED` — User deferred judgment via the inquiry modal. Loses urgency
+ *   bonus for the current cycle but the branch is not permanently killed.
  */
-export type NodeStatus = 'HYPOTHESIS' | 'CONFIRMED' | 'QUESTION' | 'UNKNOWN';
+export type NodeStatus = 'HYPOTHESIS' | 'CONFIRMED' | 'QUESTION' | 'UNKNOWN' | 'REFUTED' | 'SKIPPED';
 
 /**
  * A node in the SSM graph — represents a single domain concept in working memory.
@@ -67,6 +64,15 @@ export interface ISSMNode {
 
   /** Current lifecycle status. Drives goal generation and scoring behavior. */
   status: NodeStatus;
+
+  /**
+   * Whether this node can be confirmed by the user via the Inquiry Modal.
+   *
+   * When `true` and the node is in HYPOTHESIZED status, the Searchlight landing
+   * on this node triggers a finding-confirmation inquiry instead of continuing
+   * the Triple-Operator cycle. The user can then confirm or dismiss the finding.
+   */
+  canBeConfirmed?: boolean;
 }
 
 /**
@@ -119,6 +125,13 @@ export interface ISSMState {
    * When true, the UI should present the open QUESTION node for resolution.
    */
   waitingForUser: boolean;
+
+  /**
+   * The ID of a HYPOTHESIZED node pending user confirmation via the finding
+   * inquiry modal. Set by `openFindingInquiry`, cleared by `confirmFinding`
+   * or `dismissFindingInquiry`.
+   */
+  pendingFindingNodeId: string | null;
 }
 
 /**
@@ -138,6 +151,25 @@ export interface ISSMState {
  *   full Triple-Operator cycle for consistency and traceability.
  */
 export type GoalKind = 'EXPAND' | 'STATUS_UPGRADE';
+
+/**
+ * Direction of an EXPAND goal relative to the Task Structure relation.
+ *
+ * @remarks
+ * DESIGN DECISION: Diagnosis starts with symptoms and reasons backwards
+ * to causes. The engine must support both forward reasoning ("what does
+ * this cause?") and abductive/reverse reasoning ("what explains this?").
+ * Rather than duplicating relations in the Task Structure, we tag each
+ * goal with a direction so the Knowledge Operator knows which side of
+ * the KB fragment to match against.
+ *
+ * - `forward` — The anchor node is the `from` side. KB matches on
+ *   `fragment.subject === anchorLabel`. New nodes come from `fragment.object`.
+ * - `reverse` — The anchor node is the `to` side. KB matches on
+ *   `fragment.object === anchorLabel`. New nodes come from `fragment.subject`.
+ *   This is abductive reasoning: "what could explain this observation?"
+ */
+export type GoalDirection = 'forward' | 'reverse';
 
 /**
  * A goal represents a single unit of work for the inference engine.
@@ -176,6 +208,13 @@ export interface IGoal {
 
   /** The entity type of the expected target node (from Task Structure). */
   targetType: string;
+
+  /**
+   * Direction of this goal relative to the Task Structure relation.
+   * `forward` = anchor is the `from` side, `reverse` = anchor is the `to` side.
+   * Defaults to `forward` for backward compatibility. STATUS_UPGRADE goals always use `forward`.
+   */
+  direction: GoalDirection;
 }
 
 /**
@@ -190,4 +229,5 @@ export const initialSSMState: ISSMState = {
   history: [],
   isRunning: false,
   waitingForUser: false,
+  pendingFindingNodeId: null,
 };

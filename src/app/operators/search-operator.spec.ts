@@ -107,6 +107,7 @@ const searchOperatorInputArb = fc.integer({ min: 1, max: 5 }).chain(nodeCount =>
               anchorLabel: fc.constant(node.label),
               targetRelation: fc.constantFrom(...RELATION_TYPES),
               targetType: fc.constantFrom(...ENTITY_TYPES),
+              direction: fc.constantFrom('forward' as const, 'reverse' as const),
             });
           })
         );
@@ -180,9 +181,10 @@ function computeExpectedScore(
 ): { rawScore: number; totalScore: number } {
   const anchor = ssm.nodes.find(n => n.id === goal.anchorNodeId);
 
-  const matchingFragments = kb.filter(
-    f => f.subject === goal.anchorLabel && f.relation === goal.targetRelation
-  );
+  const isReverse = goal.direction === 'reverse';
+  const matchingFragments = isReverse
+    ? kb.filter(f => f.object === goal.anchorLabel && f.relation === goal.targetRelation)
+    : kb.filter(f => f.subject === goal.anchorLabel && f.relation === goal.targetRelation);
 
   const maxUrgency = matchingFragments.length > 0
     ? Math.max(...matchingFragments.map(f => f.metadata.urgency))

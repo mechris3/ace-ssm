@@ -1,24 +1,17 @@
 /**
- * @fileoverview Knowledge Operator — third and final operator in the Triple-Operator cycle.
+ * @fileoverview Knowledge Operator — Operator 3 of the Triple-Operator cycle.
+ * [Ref: MD Sec 3.3 - Knowledge Operator]
  *
- * The Knowledge Operator resolves the winning goal by matching it against the
- * Knowledge Base (Layer 2). It is the bridge between the engine's reasoning
- * (goals) and the domain knowledge (KB fragments).
+ * Resolves the winning goal by matching it against the Knowledge Base (Layer 2).
+ * It is the bridge between the engine's reasoning (goals) and domain knowledge.
  *
  * Three possible outcomes:
- * 1. **PATCH** — KB fragments matched; spawn HYPOTHESIS nodes for ALL matches.
- * 2. **STATUS_UPGRADE_PATCH** — Goal is STATUS_UPGRADE; bypass KB entirely.
- * 3. **INQUIRY_REQUIRED** — No KB fragments matched; the user must provide input.
+ *   1. PATCH              — KB matched; spawn new nodes and/or merge edges (Sec 3.3.2, 4.6)
+ *   2. STATUS_UPGRADE_PATCH — Goal is STATUS_UPGRADE; bypass KB (Sec 3.3.1)
+ *   3. NO_MATCH           — No KB fragments matched; goal is exhausted (Sec 4.4)
  *
- * This is a **pure function** — no side effects, no service dependencies.
- *
- * @remarks
- * DESIGN DECISION: The Knowledge Operator uses **label-based matching** (not ID-based).
- * It matches `goal.anchorLabel` (a domain term like "Fever") against
- * `fragment.subject` (also "Fever"). This is what makes the KB universal —
- * the same fragment applies to ANY SSM node with the matching label, regardless
- * of when or how that node was created. IDs are ephemeral (UUID-based); labels
- * are domain-stable.
+ * Pure function — no side effects, no service dependencies.
+ * [Ref: MD Sec 10 Invariant 6 - Pure Operators]
  */
 
 import { IGoal, ISSMNode, ISSMEdge, NodeStatus } from '../models/ssm.model';
@@ -26,41 +19,35 @@ import { IKnowledgeFragment } from '../models/knowledge-base.model';
 import { KnowledgeOperatorResult } from '../models/engine.model';
 
 /**
- * Resolves a goal against the Knowledge Base and returns the appropriate result.
+ * Resolves a goal against the Knowledge Base.
+ * [Ref: MD Sec 3.3.2 - EXPAND Goals — KB Matching]
  *
- * **For EXPAND goals:**
- * Filters KB fragments where `subject === goal.anchorLabel` AND
- * `relation === goal.targetRelation`. If matches are found, ALL are
- * instantiated as HYPOTHESIS nodes in a single PATCH (multi-hypothesis
- * spawning). If no matches are found, returns INQUIRY_REQUIRED.
+ * Uses a cascading KB match:
+ *   Priority 1: Exact relation match (anchor + targetRelation)
+ *   Priority 2: Broad fallback (anchor on correct side, any relation)
  *
- * **For STATUS_UPGRADE goals:**
- * Bypasses the KB entirely and returns a STATUS_UPGRADE_PATCH. The Goal
- * Generator already verified that all CONFIRMED_BY targets are CONFIRMED,
- * so no further KB consultation is needed.
+ * For each match, checks if the target already exists in the SSM:
+ *   - Existing target → edge to existing node (Graph Merging, Sec 4.6)
+ *   - New target → HYPOTHESIS node + edge (Multi-Hypothesis Spawning, Sec 3.3.3)
  *
  * @param goal - The winning goal from the Search Operator
- * @param kb - All Knowledge Base fragments
- * @returns A discriminated union result (PATCH | STATUS_UPGRADE_PATCH | INQUIRY_REQUIRED)
- *
- * @remarks
- * DESIGN DECISION: Multi-hypothesis spawning creates ALL matching nodes in
- * one PATCH rather than picking the "best" match. This is deliberate — the
- * engine doesn't know which hypothesis is correct at this stage. Branching
- * is immediate; prioritization happens on the NEXT pulse when the Search
- * Operator scores the new EXPAND goals emanating from each hypothesis.
- * This avoids the need for a separate "branching" mechanism and keeps the
- * operator pipeline simple.
+ * @param kb - All Knowledge Base fragments (Layer 2)
+ * @param existingNodes - Current SSM nodes for deduplication / graph merging
+ * @returns Discriminated union: PATCH | STATUS_UPGRADE_PATCH | NO_MATCH
  */
 export function resolveGoal(
   goal: IGoal,
-  kb: IKnowledgeFragment[]
+  kb: IKnowledgeFragment[],
+  existingNodes: ISSMNode[] = []
 ): KnowledgeOperatorResult {
-  // DESIGN DECISION: STATUS_UPGRADE goals bypass KB entirely. The Knowledge
-  // Operator acts as a pass-through — it doesn't need to look anything up
-  // because the Goal Generator already verified the promotion conditions.
-  // This keeps STATUS_UPGRADE in the Triple-Operator pipeline (for traceability)
-  // without adding unnecessary KB queries.
+
+  // ═══════════════════════════════════════════════════════════════════
+  // STATUS_UPGRADE — bypass KB entirely
+  // [Ref: MD Sec 3.3.1 - STATUS_UPGRADE Goals]
+  // WHY: The Goal Generator already verified promotion conditions.
+  // Keeping STATUS_UPGRADE in the pipeline ensures traceability —
+  // every mutation gets a ReasoningStep (Sec 10 Invariant 5).
+  // ═══════════════════════════════════════════════════════════════════
   if (goal.kind === 'STATUS_UPGRADE') {
     return {
       type: 'STATUS_UPGRADE_PATCH',
@@ -69,39 +56,94 @@ export function resolveGoal(
     };
   }
 
-  // EXPAND goals: match by anchor label + target relation.
-  // This is the label-based matching strategy — domain terms bridge SSM ↔ KB.
-  const matches = kb.filter(
-    f => f.subject === goal.anchorLabel && f.relation === goal.targetRelation
-  );
+  // ═══════════════════════════════════════════════════════════════════
+  // EXPAND — Cascading KB Match
+  // [Ref: MD Sec 3.3.2 - Cascading Search]
+  // WHY: The KB may use a different but logically equivalent relation
+  // name (e.g., CONFIRMED_BY instead of EXPLAINS). The broad fallback
+  // prevents the engine from stalling on relation name mismatches.
+  // ═══════════════════════════════════════════════════════════════════
+  const isReverse = goal.direction === 'reverse';
 
-  // No KB fragments match → the engine doesn't know about this relationship.
-  // Return INQUIRY_REQUIRED so the orchestrator can create a QUESTION node
-  // and pause for user input.
+  // [Ref: MD Sec 10 Invariant 3 - Dual-key KB matching]
+  // WHY: Supports KB fragments authored with either human-readable
+  // labels ("Stiff Neck") or identifier-style keys ("Stiff_Neck").
+  const anchorKeys = new Set([goal.anchorLabel, goal.anchorNodeId]);
+
+  // Priority 1: Exact relation match
+  let matches = isReverse
+    ? kb.filter(f => anchorKeys.has(f.object) && f.relation === goal.targetRelation)
+    : kb.filter(f => anchorKeys.has(f.subject) && f.relation === goal.targetRelation);
+
+  // Priority 2: Broad fallback — any relation for this anchor
   if (matches.length === 0) {
-    return { type: 'INQUIRY_REQUIRED', goal };
+    matches = isReverse
+      ? kb.filter(f => anchorKeys.has(f.object))
+      : kb.filter(f => anchorKeys.has(f.subject));
   }
 
-  // Multi-hypothesis spawning: ALL matches become HYPOTHESIS nodes in a single PATCH.
-  // Each node gets a fresh UUID and inherits its label and type from the KB fragment's
-  // object side (e.g., fragment "Fever CAUSES Bacterial Meningitis" → node labeled
-  // "Bacterial Meningitis" of type "ETIOLOGIC_AGENT").
-  const nodes: ISSMNode[] = matches.map(f => ({
-    id: `node_${crypto.randomUUID()}`,
-    label: f.object,
-    type: f.objectType,
-    status: 'HYPOTHESIS' as NodeStatus,
-  }));
+  if (matches.length === 0) {
+    return { type: 'NO_MATCH', goal };
+  }
 
-  // Create one edge per new node, connecting the anchor to the new hypothesis.
-  // The edge's relationType matches the goal's targetRelation, preserving the
-  // Task Structure grammar in the SSM graph.
-  const edges: ISSMEdge[] = nodes.map((node, i) => ({
-    id: `edge_${crypto.randomUUID()}`,
-    source: goal.anchorNodeId,
-    target: node.id,
-    relationType: goal.targetRelation,
-  }));
+  // ═══════════════════════════════════════════════════════════════════
+  // Graph Merging / Deduplication
+  // [Ref: MD Sec 4.6 - Graph Merging]
+  // [Ref: MD Sec 3.3.2 - Deduplication and Graph Merging]
+  //
+  // WHY (Parsimony/Convergence): If a target node already exists in
+  // the SSM, we draw an edge to it instead of spawning a duplicate.
+  // This merges subgraphs — e.g., Subarachnoid_Hemorrhage discovered
+  // from two different findings gets one node with two incoming edges,
+  // not two separate nodes. This is what makes the +30 parsimony
+  // bonus (Sec 3.2.1) meaningful.
+  // ═══════════════════════════════════════════════════════════════════
+  const existingByKey = new Map<string, ISSMNode>();
+  for (const n of existingNodes) {
+    existingByKey.set(n.label, n);
+    existingByKey.set(n.id, n);
+  }
+
+  const nodes: ISSMNode[] = [];
+  const edges: ISSMEdge[] = [];
+
+  for (const f of matches) {
+    const targetLabel = isReverse ? f.subject : f.object;
+    const existing = existingByKey.get(targetLabel);
+
+    if (existing) {
+      // [Ref: MD Sec 4.6] Target exists → edge only (graph merging)
+      edges.push({
+        id: `edge_${crypto.randomUUID()}`,
+        source: isReverse ? existing.id : goal.anchorNodeId,
+        target: isReverse ? goal.anchorNodeId : existing.id,
+        relationType: f.relation,
+      });
+    } else {
+      // [Ref: MD Sec 3.3.3] Target is new → spawn HYPOTHESIS + edge
+      const newNode: ISSMNode = {
+        id: `node_${crypto.randomUUID()}`,
+        label: isReverse ? f.subject : f.object,
+        type: isReverse ? f.subjectType : f.objectType,
+        status: 'HYPOTHESIS' as NodeStatus,
+        // [Ref: MD Sec 5.1] canBeConfirmed defaults to true so the engine
+        // pauses for user confirmation on every new hypothesis unless the
+        // KB fragment explicitly opts out.
+        canBeConfirmed: f.canBeConfirmed ?? true,
+      };
+      nodes.push(newNode);
+      edges.push({
+        id: `edge_${crypto.randomUUID()}`,
+        source: isReverse ? newNode.id : goal.anchorNodeId,
+        target: isReverse ? goal.anchorNodeId : newNode.id,
+        relationType: f.relation,
+      });
+    }
+  }
+
+  if (nodes.length === 0 && edges.length === 0) {
+    return { type: 'NO_MATCH', goal };
+  }
 
   return { type: 'PATCH', nodes, edges };
 }

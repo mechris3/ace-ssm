@@ -1,37 +1,32 @@
 /**
  * @fileoverview SSM Reducer — state transitions for the SSM (Layer 3 — Working Memory).
+ * [Ref: MD Sec 6.2 - SSM Actions]
  *
- * The SSM reducer manages the evolving graph of nodes, edges, and reasoning
- * history. It enforces the append-only invariant for graph growth (PATCH)
- * while allowing targeted status mutations (STATUS_UPGRADE, INQUIRY resolution).
+ * Manages the evolving graph of nodes, edges, and reasoning history.
+ * Enforces the append-only invariant for graph growth (PATCH) while
+ * allowing targeted status mutations (STATUS_UPGRADE, inquiry resolution).
  *
  * Every mutating action (except reset/restore) appends exactly one
- * `IReasoningStep` to the history array, maintaining the "Glass Box" audit trail.
- *
- * @remarks
- * DESIGN DECISION: The SSM is append-only for nodes and edges via PATCH.
- * Nodes are never deleted — they can only change status. This design choice
- * ensures the full reasoning trail is preserved and auditable. The history
- * array is also strictly append-only (monotonically growing).
+ * IReasoningStep to the history array.
+ * [Ref: MD Sec 10 Invariant 5 - Every mutation is explained]
+ * [Ref: MD Sec 10 Invariant 2 - Append-only graph]
  */
 
 import { createReducer, on } from '@ngrx/store';
 import { ISSMState, NodeStatus, initialSSMState } from '../../models/ssm.model';
 import * as SSMActions from './ssm.actions';
 
-/** NgRx feature key for the SSM store slice. */
+/** NgRx feature key for the SSM store slice. [Ref: MD Sec 6.1] */
 export const ssmFeatureKey = 'ssm';
 
 export const ssmReducer = createReducer(
   initialSSMState,
 
-  /**
-   * Append new nodes and edges from a Knowledge Operator PATCH result.
-   *
-   * Uses spread operator to concatenate new items onto existing arrays,
-   * preserving all previous nodes and edges unchanged. This is the core
-   * of the append-only invariant (Property 5 in the design spec).
-   */
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - applyPatch]
+  // Append new nodes and edges from a Knowledge Operator PATCH result.
+  // WHY: Append-only — preserves the full reasoning trail (Invariant 2).
+  // ═══════════════════════════════════════════════════════════════════
   on(SSMActions.applyPatch, (state, { nodes, edges, reasoningStep }) => ({
     ...state,
     nodes: [...state.nodes, ...nodes],
@@ -39,18 +34,12 @@ export const ssmReducer = createReducer(
     history: [...state.history, reasoningStep],
   })),
 
-  /**
-   * Promote a HYPOTHESIS node to CONFIRMED status.
-   *
-   * Uses `map()` to find the target node by ID and update only its status.
-   * All other nodes remain unchanged. This is a targeted mutation, not an append.
-   *
-   * @remarks
-   * DESIGN DECISION: The status is hard-coded to 'CONFIRMED' (cast via `as NodeStatus`)
-   * rather than reading from the action payload. This is intentional — STATUS_UPGRADE
-   * always means HYPOTHESIS → CONFIRMED. The cast is needed because the string literal
-   * 'CONFIRMED' doesn't automatically narrow to the `NodeStatus` union type.
-   */
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - applyStatusUpgrade]
+  // Promote a HYPOTHESIS node to CONFIRMED.
+  // WHY: STATUS_UPGRADE always means HYPOTHESIS → CONFIRMED. The status
+  // is hard-coded rather than read from the payload for safety.
+  // ═══════════════════════════════════════════════════════════════════
   on(SSMActions.applyStatusUpgrade, (state, { nodeId, reasoningStep }) => ({
     ...state,
     nodes: state.nodes.map(n =>
@@ -59,13 +48,9 @@ export const ssmReducer = createReducer(
     history: [...state.history, reasoningStep],
   })),
 
-  /**
-   * Add a QUESTION node and edge when the engine needs user input.
-   *
-   * Appends the question node and its connecting edge to the graph,
-   * records the reasoning step, and sets `waitingForUser = true` to
-   * signal the UI that input is needed.
-   */
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - openInquiry] (legacy QUESTION node flow)
+  // ═══════════════════════════════════════════════════════════════════
   on(SSMActions.openInquiry, (state, { questionNode, edge, reasoningStep }) => ({
     ...state,
     nodes: [...state.nodes, questionNode],
@@ -74,19 +59,9 @@ export const ssmReducer = createReducer(
     waitingForUser: true,
   })),
 
-  /**
-   * Resolve an open QUESTION node with user-provided information.
-   *
-   * Updates the target node's status (CONFIRMED or UNKNOWN) and optionally
-   * its label. Clears `waitingForUser` to allow the engine to resume.
-   *
-   * @remarks
-   * DESIGN DECISION: `newLabel ?? n.label` uses nullish coalescing — if the
-   * user provides a label (CONFIRMED case), it replaces the "?" prompt.
-   * If `newLabel` is null (UNKNOWN case), the original label is preserved.
-   * This keeps the QUESTION node's "?" prefix visible in the graph for
-   * UNKNOWN resolutions, serving as a visual indicator of unresolved gaps.
-   */
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - resolveInquiry] (legacy QUESTION node resolution)
+  // ═══════════════════════════════════════════════════════════════════
   on(SSMActions.resolveInquiry, (state, { nodeId, newStatus, newLabel, reasoningStep }) => ({
     ...state,
     nodes: state.nodes.map(n =>
@@ -96,21 +71,74 @@ export const ssmReducer = createReducer(
     waitingForUser: false,
   })),
 
-  /**
-   * Reset the SSM to its initial empty state.
-   * Clears all nodes, edges, history, and flags.
-   */
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - resetSSM]
+  // ═══════════════════════════════════════════════════════════════════
   on(SSMActions.resetSSM, () => initialSSMState),
 
-  /**
-   * Restore the SSM from a deserialized state.
-   * Replaces the entire state wholesale — used for loading saved sessions.
-   *
-   * @remarks
-   * DESIGN DECISION: The previous state is completely discarded (the `_`
-   * parameter is unused). This is intentional — restore is a full replacement,
-   * not a merge. The deserialized state is assumed to be structurally valid
-   * (validated by the SSM Serializer before dispatch).
-   */
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - restoreSSM]
+  // WHY: Full replacement, not merge. The deserialized state is assumed
+  // structurally valid (validated by the SSM Serializer before dispatch).
+  // ═══════════════════════════════════════════════════════════════════
   on(SSMActions.restoreSSM, (_, { ssmState }) => ssmState),
+
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - openFindingInquiry]
+  // [Ref: MD Sec 5.1 - Trigger Condition]
+  // WHY: Sets pendingFindingNodeId so the UI knows which node to show
+  // in the inquiry modal. Sets waitingForUser to block the pacer.
+  // ═══════════════════════════════════════════════════════════════════
+  on(SSMActions.openFindingInquiry, (state, { nodeId, reasoningStep }) => ({
+    ...state,
+    history: [...state.history, reasoningStep],
+    waitingForUser: true,
+    pendingFindingNodeId: nodeId,
+  })),
+
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - confirmFinding]
+  // [Ref: MD Sec 5.3 - User Actions: Confirm → CONFIRMED]
+  // ═══════════════════════════════════════════════════════════════════
+  on(SSMActions.confirmFinding, (state, { nodeId, reasoningStep }) => ({
+    ...state,
+    nodes: state.nodes.map(n =>
+      n.id === nodeId ? { ...n, status: 'CONFIRMED' as NodeStatus } : n
+    ),
+    history: [...state.history, reasoningStep],
+    waitingForUser: false,
+    pendingFindingNodeId: null,
+  })),
+
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - refuteFinding]
+  // [Ref: MD Sec 5.3 - User Actions: Refute → REFUTED]
+  // WHY: REFUTED nodes apply a 99% penalty (0.01×) to all downstream
+  // goals, effectively killing the branch. [Ref: MD Sec 3.2.3]
+  // ═══════════════════════════════════════════════════════════════════
+  on(SSMActions.refuteFinding, (state, { nodeId, reasoningStep }) => ({
+    ...state,
+    nodes: state.nodes.map(n =>
+      n.id === nodeId ? { ...n, status: 'REFUTED' as NodeStatus } : n
+    ),
+    history: [...state.history, reasoningStep],
+    waitingForUser: false,
+    pendingFindingNodeId: null,
+  })),
+
+  // ═══════════════════════════════════════════════════════════════════
+  // [Ref: MD Sec 6.2 - skipFinding]
+  // [Ref: MD Sec 5.3 - User Actions: Skip → SKIPPED]
+  // WHY: SKIPPED nodes lose their urgency bonus but the branch is not
+  // killed — it can still compete on parsimony. [Ref: MD Sec 3.2.3]
+  // ═══════════════════════════════════════════════════════════════════
+  on(SSMActions.skipFinding, (state, { nodeId, reasoningStep }) => ({
+    ...state,
+    nodes: state.nodes.map(n =>
+      n.id === nodeId ? { ...n, status: 'SKIPPED' as NodeStatus } : n
+    ),
+    history: [...state.history, reasoningStep],
+    waitingForUser: false,
+    pendingFindingNodeId: null,
+  })),
 );

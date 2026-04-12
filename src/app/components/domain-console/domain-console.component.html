@@ -3,15 +3,13 @@
 </button>
 
 <div class="console-content" [class.hidden]="collapsed">
-  <h3 class="section-title">Task Structure</h3>
-  <textarea [(ngModel)]="taskStructureJson" placeholder="Paste Task Structure JSON..." rows="5"></textarea>
-  <button class="btn" (click)="loadTaskStructure()">Load Task Structure</button>
-  <div class="error" *ngIf="taskStructureError">{{ taskStructureError }}</div>
-
-  <h3 class="section-title">Knowledge Base</h3>
-  <textarea [(ngModel)]="kbJson" placeholder="Paste Knowledge Base JSON..." rows="5"></textarea>
-  <button class="btn" (click)="loadKnowledgeBase()">Load Knowledge Base</button>
-  <div class="error" *ngIf="kbError">{{ kbError }}</div>
+  <h3 class="section-title">Domain</h3>
+  <textarea [(ngModel)]="domainJson" placeholder="Paste Domain JSON..." rows="8"></textarea>
+  <div class="btn-row">
+    <button class="btn" (click)="loadDomain()">Load Domain</button>
+    <button class="btn btn-save" (click)="saveDomain()">Save Session</button>
+  </div>
+  <div class="error" *ngIf="domainError">{{ domainError }}</div>
 
   <h3 class="section-title">Seed Finding</h3>
   <div class="seed-form">

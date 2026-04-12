@@ -129,7 +129,7 @@ export interface IReasoningStep {
    * Breakdown of every factor that contributed to the score.
    * The sum of `factor.impact` values equals the raw score (pre-penalty).
    */
-  factors: IRationaleFactor[];
+  factors?: IRationaleFactor[];
 
   /** Name of the strategy that was active when this step was scored. */
   strategyName: string;
@@ -147,11 +147,11 @@ export interface IReasoningStep {
  *
  * @remarks
  * "Balanced" means urgency, parsimony, and cost aversion all have weight 1.0,
- * so no single factor dominates. The 500ms pacer delay provides a comfortable
+ * so no single factor dominates. The 1500ms pacer delay provides a comfortable
  * pace for observing the engine's reasoning in real time.
  */
 export const initialStrategy: IStrategy = {
   name: 'Balanced',
   weights: { urgency: 1.0, parsimony: 1.0, costAversion: 1.0 },
-  pacerDelay: 500,
+  pacerDelay: 1500,
 };

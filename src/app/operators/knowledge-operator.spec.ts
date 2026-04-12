@@ -24,12 +24,26 @@ const expandGoalArb: fc.Arbitrary<IGoal> = fc.record({
   anchorLabel: fc.constantFrom(...LABELS),
   targetRelation: fc.constantFrom(...RELATION_TYPES),
   targetType: fc.constantFrom(...ENTITY_TYPES),
+  direction: fc.constantFrom('forward' as const, 'reverse' as const),
 });
 
 /**
  * Build a KB fragment that matches a given goal's anchorLabel and targetRelation.
+ * For forward goals: fragment.subject === anchorLabel
+ * For reverse goals: fragment.object === anchorLabel
  */
 function matchingFragmentArb(goal: IGoal): fc.Arbitrary<IKnowledgeFragment> {
+  if (goal.direction === 'reverse') {
+    return fc.record({
+      id: fc.uuid(),
+      subject: fc.constantFrom(...LABELS),
+      subjectType: fc.constantFrom(...ENTITY_TYPES),
+      relation: fc.constant(goal.targetRelation),
+      object: fc.constant(goal.anchorLabel),
+      objectType: fc.constantFrom(...ENTITY_TYPES),
+      metadata: metadataArb,
+    });
+  }
   return fc.record({
     id: fc.uuid(),
     subject: fc.constant(goal.anchorLabel),
@@ -43,10 +57,27 @@ function matchingFragmentArb(goal: IGoal): fc.Arbitrary<IKnowledgeFragment> {
 
 /**
  * Build a KB fragment guaranteed NOT to match a given goal.
- * Uses subjects and relations drawn from pools that exclude the goal's values.
+ * For forward goals: subject differs from anchorLabel OR relation differs.
+ * For reverse goals: object differs from anchorLabel OR relation differs.
  */
 function nonMatchingFragmentArb(goal: IGoal): fc.Arbitrary<IKnowledgeFragment> {
-  // Pick a subject that differs from the goal's anchorLabel
+  if (goal.direction === 'reverse') {
+    // Pick an object that differs from the goal's anchorLabel
+    const otherLabels = LABELS.filter(l => l !== goal.anchorLabel);
+    const safeObjects = otherLabels.length > 0 ? otherLabels : ['__NO_MATCH__'];
+
+    return fc.record({
+      id: fc.uuid(),
+      subject: fc.constantFrom(...LABELS),
+      subjectType: fc.constantFrom(...ENTITY_TYPES),
+      relation: fc.constantFrom(...RELATION_TYPES),
+      object: fc.constantFrom(...safeObjects),
+      objectType: fc.constantFrom(...ENTITY_TYPES),
+      metadata: metadataArb,
+    });
+  }
+
+  // Forward: pick a subject that differs from the goal's anchorLabel
   const otherLabels = LABELS.filter(l => l !== goal.anchorLabel);
   const safeSubjects = otherLabels.length > 0 ? otherLabels : ['__NO_MATCH__'];
 
@@ -83,9 +114,10 @@ describe('Property 11: Knowledge Operator Match Completeness', () => {
           const result = resolveGoal(goal, kb);
 
           // Count actual matches (same logic as the operator)
-          const expectedMatches = kb.filter(
-            f => f.subject === goal.anchorLabel && f.relation === goal.targetRelation
-          );
+          const isReverse = goal.direction === 'reverse';
+          const expectedMatches = isReverse
+            ? kb.filter(f => f.object === goal.anchorLabel && f.relation === goal.targetRelation)
+            : kb.filter(f => f.subject === goal.anchorLabel && f.relation === goal.targetRelation);
           const N = expectedMatches.length;
 
           // Must be a PATCH since we have at least 1 matching fragment
@@ -101,19 +133,27 @@ describe('Property 11: Knowledge Operator Match Completeness', () => {
               const node = result.nodes[i];
               const frag = expectedMatches[i];
 
-              expect(node.label).toBe(frag.object);
-              expect(node.type).toBe(frag.objectType);
+              expect(node.label).toBe(isReverse ? frag.subject : frag.object);
+              expect(node.type).toBe(isReverse ? frag.subjectType : frag.objectType);
               expect(node.status).toBe('HYPOTHESIS');
             }
 
-            // Each edge's source is the goal's anchorNodeId
+            // Edge direction depends on goal direction
             for (const edge of result.edges) {
-              expect(edge.source).toBe(goal.anchorNodeId);
+              if (isReverse) {
+                expect(edge.target).toBe(goal.anchorNodeId);
+              } else {
+                expect(edge.source).toBe(goal.anchorNodeId);
+              }
             }
 
-            // Each edge's target matches the corresponding node
+            // Each edge connects to the corresponding node
             for (let i = 0; i < N; i++) {
-              expect(result.edges[i].target).toBe(result.nodes[i].id);
+              if (isReverse) {
+                expect(result.edges[i].source).toBe(result.nodes[i].id);
+              } else {
+                expect(result.edges[i].target).toBe(result.nodes[i].id);
+              }
             }
           }
         }

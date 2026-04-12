@@ -42,6 +42,7 @@ const goalArb = fc.record({
   anchorLabel: fc.constantFrom(...LABEL_POOL),
   targetRelation: fc.constantFrom(...RELATION_POOL),
   targetType: fc.constantFrom(...TYPE_POOL),
+  direction: fc.constantFrom('forward' as const, 'reverse' as const),
 });
 
 const reasoningStepArb: fc.Arbitrary<IReasoningStep> = fc.record({

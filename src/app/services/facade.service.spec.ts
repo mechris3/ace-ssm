@@ -9,6 +9,8 @@ import { first } from 'rxjs/operators';
 
 import * as EngineActions from '../store/engine/engine.actions';
 import * as SSMActions from '../store/ssm/ssm.actions';
+import * as TaskStructureActions from '../store/task-structure/task-structure.actions';
+import * as KnowledgeBaseActions from '../store/knowledge-base/knowledge-base.actions';
 
 describe('FacadeService', () => {
   let service: FacadeService;
@@ -86,6 +88,59 @@ describe('FacadeService', () => {
     expect(resolveCall.newLabel).toBe('Test Label');
     expect(resolveCall.reasoningStep.actionTaken).toBe('User confirmed');
     expect(answeredCall).toBeTruthy();
+  });
+
+  // ── loadDomain() ────────────────────────────────────────────────────
+  it('loadDomain() dispatches both loadTaskStructure and loadKnowledgeBase', () => {
+    const domain = {
+      id: 'test-domain',
+      name: 'Test Domain',
+      structure: { entityTypes: ['FINDING'], relations: [] },
+      knowledgeBase: [],
+    };
+    service.loadDomain(JSON.stringify(domain));
+
+    expect(store.dispatch).toHaveBeenCalledWith(
+      TaskStructureActions.loadTaskStructure({ taskStructure: domain.structure }),
+    );
+    expect(store.dispatch).toHaveBeenCalledWith(
+      KnowledgeBaseActions.loadKnowledgeBase({ fragments: domain.knowledgeBase }),
+    );
+  });
+
+  it('loadDomain() dispatches failure on invalid JSON', () => {
+    service.loadDomain('not valid json');
+
+    const calls = (store.dispatch as jasmine.Spy).calls.allArgs().map(a => a[0]);
+    const failureCall = calls.find((a: any) => a.type === '[Task Structure] Load Task Structure Failure');
+    expect(failureCall).toBeTruthy();
+    expect(failureCall.error).toContain('Domain JSON parse error');
+  });
+
+  it('loadDomain() dispatches failure when structure is missing', () => {
+    const domain = { id: 'test', name: 'Test', knowledgeBase: [] };
+    service.loadDomain(JSON.stringify(domain));
+
+    const calls = (store.dispatch as jasmine.Spy).calls.allArgs().map(a => a[0]);
+    const failureCall = calls.find((a: any) => a.type === '[Task Structure] Load Task Structure Failure');
+    expect(failureCall).toBeTruthy();
+    expect(failureCall.error).toContain('missing "structure" or "knowledgeBase"');
+  });
+
+  it('loadDomain() dispatches failure when knowledgeBase is missing', () => {
+    const domain = { id: 'test', name: 'Test', structure: { entityTypes: [], relations: [] } };
+    service.loadDomain(JSON.stringify(domain));
+
+    const calls = (store.dispatch as jasmine.Spy).calls.allArgs().map(a => a[0]);
+    const failureCall = calls.find((a: any) => a.type === '[Task Structure] Load Task Structure Failure');
+    expect(failureCall).toBeTruthy();
+    expect(failureCall.error).toContain('missing "structure" or "knowledgeBase"');
+  });
+
+  // ── viewModel$.domainError ─────────────────────────────────────────
+  it('viewModel$ emits domainError combining taskStructureError and kbError', async () => {
+    const vm = await service.viewModel$.pipe(first()).toPromise();
+    expect(vm!.domainError).toBeNull();
   });
 
   // ── selectNode() + viewModel$ ──────────────────────────────────────

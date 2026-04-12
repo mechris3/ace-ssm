@@ -1,0 +1,123 @@
+{
+    "id": "neuro_v2_realistic",
+    "name": "Neurological Emergency Protocol",
+    "structure": {
+        "entityTypes": [
+            "Condition",
+            "Clinical_Finding",
+            "Symptom"
+        ],
+        "relations": [
+            {
+                "type": "CAUSED_BY",
+                "from": "Condition",
+                "to": "Clinical_Finding"
+            },
+            {
+                "type": "EXPLAINS",
+                "from": "Clinical_Finding",
+                "to": "Symptom"
+            },
+            {
+                "type": "CONFIRMED_BY",
+                "from": "Clinical_Finding",
+                "to": "Symptom"
+            }
+        ]
+    },
+    "knowledgeBase": [
+        {
+            "id": "frag_001",
+            "subject": "Nuchal_Rigidity",
+            "subjectType": "Clinical_Finding",
+            "relation": "CONFIRMED_BY",
+            "object": "Stiff_Neck",
+            "objectType": "Symptom",
+            "metadata": {
+                "urgency": 0.8,
+                "specificity": 0.9,
+                "inquiryCost": 0.1
+            },
+            "canBeConfirmed": true
+        },
+        {
+            "id": "frag_002",
+            "subject": "Thunderclap_Onset",
+            "subjectType": "Clinical_Finding",
+            "relation": "EXPLAINS",
+            "object": "Severe_Headache",
+            "objectType": "Symptom",
+            "metadata": {
+                "urgency": 0.9,
+                "specificity": 0.95,
+                "inquiryCost": 0.1
+            },
+            "canBeConfirmed": true
+        },
+        {
+            "id": "frag_003",
+            "subject": "Bacterial_Meningitis",
+            "subjectType": "Condition",
+            "relation": "CAUSED_BY",
+            "object": "Nuchal_Rigidity",
+            "objectType": "Clinical_Finding",
+            "metadata": {
+                "urgency": 1.0,
+                "specificity": 0.7,
+                "inquiryCost": 0.5
+            },
+            "canBeConfirmed": false
+        },
+        {
+            "id": "frag_004",
+            "subject": "Subarachnoid_Hemorrhage",
+            "subjectType": "Condition",
+            "relation": "CAUSED_BY",
+            "object": "Thunderclap_Onset",
+            "objectType": "Clinical_Finding",
+            "metadata": {
+                "urgency": 1.0,
+                "specificity": 0.95,
+                "inquiryCost": 0.5
+            },
+            "canBeConfirmed": false
+        },
+        {
+            "id": "frag_005",
+            "subject": "Subarachnoid_Hemorrhage",
+            "subjectType": "Condition",
+            "relation": "CAUSED_BY",
+            "object": "Nuchal_Rigidity",
+            "objectType": "Clinical_Finding",
+            "metadata": {
+                "urgency": 1.0,
+                "specificity": 0.6,
+                "inquiryCost": 0.5
+            },
+            "canBeConfirmed": false
+        }
+    ],
+    "ssm": {
+        "nodes": [
+            {
+                "id": "Stiff_Neck",
+                "label": "Stiff Neck",
+                "type": "Symptom",
+                "status": "CONFIRMED",
+                "canBeConfirmed": true
+            },
+            {
+                "id": "Severe_Headache",
+                "label": "Severe Headache",
+                "type": "Symptom",
+                "status": "CONFIRMED",
+                "canBeConfirmed": true
+            }
+        ],
+        "edges": [],
+        "history": [],
+        "isRunning": false,
+        "waitingForUser": false,
+        "pendingFindingNodeId": null
+    }
+}

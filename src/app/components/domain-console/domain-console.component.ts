@@ -14,29 +14,27 @@ import { StrategyPanelComponent } from '../strategy-panel/strategy-panel.compone
 })
 export class DomainConsoleComponent {
   @Input() entityTypes: string[] = [];
-  @Input() taskStructureError: string | null = null;
-  @Input() kbError: string | null = null;
+  @Input() domainError: string | null = null;
   @Input() weights: IStrategyWeights = { urgency: 1, parsimony: 1, costAversion: 1 };
 
-  @Output() onLoadTaskStructure = new EventEmitter<string>();
-  @Output() onLoadKnowledgeBase = new EventEmitter<string>();
+  @Output() onLoadDomain = new EventEmitter<string>();
+  @Output() onSaveDomain = new EventEmitter<void>();
   @Output() onSeedFinding = new EventEmitter<{ label: string; type: string }>();
   @Output() onResetOnLoadChange = new EventEmitter<boolean>();
   @Output() onWeightsChange = new EventEmitter<IStrategyWeights>();
 
-  taskStructureJson = '';
-  kbJson = '';
+  domainJson = '';
   seedLabel = '';
   seedType = '';
   resetOnLoad = true;
   collapsed = false;
 
-  loadTaskStructure(): void {
-    this.onLoadTaskStructure.emit(this.taskStructureJson);
+  loadDomain(): void {
+    this.onLoadDomain.emit(this.domainJson);
   }
 
-  loadKnowledgeBase(): void {
-    this.onLoadKnowledgeBase.emit(this.kbJson);
+  saveDomain(): void {
+    this.onSaveDomain.emit();
   }
 
   addSeedFinding(): void {

@@ -58,10 +58,33 @@ export const initialState: KnowledgeBaseState = {
  * @returns Error message string, or null if all valid
  */
 function validateFragments(fragments: IKnowledgeFragment[]): string | null {
-  const fields = ['urgency', 'specificity', 'inquiryCost'] as const;
-  for (const fragment of fragments) {
-    for (const field of fields) {
+  if (!Array.isArray(fragments)) {
+    return 'Invalid Knowledge Base: expected an array of fragment objects.';
+  }
+
+  const requiredFields = ['id', 'subject', 'subjectType', 'relation', 'object', 'objectType', 'metadata'];
+  const metadataFields = ['urgency', 'specificity', 'inquiryCost'] as const;
+
+  for (let i = 0; i < fragments.length; i++) {
+    const fragment = fragments[i];
+
+    // Check required top-level fields
+    for (const field of requiredFields) {
+      if (!(field in fragment)) {
+        return `Fragment at index ${i} (id: ${fragment.id ?? 'unknown'}): missing required field "${field}". Each fragment must have: ${requiredFields.join(', ')}.`;
+      }
+    }
+
+    // Check metadata is an object with the right fields
+    if (!fragment.metadata || typeof fragment.metadata !== 'object') {
+      return `Fragment ${fragment.id}: "metadata" must be an object with {urgency, specificity, inquiryCost}. Got: ${JSON.stringify(fragment.metadata)}`;
+    }
+
+    for (const field of metadataFields) {
       const value = fragment.metadata[field];
+      if (typeof value !== 'number') {
+        return `Fragment ${fragment.id}: metadata.${field} must be a number. Got: ${JSON.stringify(value)}`;
+      }
       if (value < 0 || value > 1) {
         return `Fragment ${fragment.id}: ${field} out of range [0, 1]`;
       }

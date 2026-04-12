@@ -76,3 +76,15 @@ export const selectRenderedHistory = createSelector(
   selectHistory,
   (history) => history.slice(-20)
 );
+
+/**
+ * Selects the SSM node that is pending user confirmation via the finding
+ * inquiry modal. Returns null if no finding inquiry is active.
+ */
+export const selectPendingFindingNode = createSelector(
+  selectSSMState,
+  (state) => {
+    if (!state.pendingFindingNodeId) { return null; }
+    return state.nodes.find(n => n.id === state.pendingFindingNodeId) ?? null;
+  }
+);

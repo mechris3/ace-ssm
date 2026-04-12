@@ -40,7 +40,7 @@ export class PacerService {
    * Current delay between pulses in milliseconds.
    * Updated via `setDelay()`, which clamps to [0, 2000].
    */
-  private delay$ = new BehaviorSubject<number>(500);
+  private delay$ = new BehaviorSubject<number>(1500);
 
   /**
    * The main pulse stream that drives the Inference Engine.

@@ -46,6 +46,15 @@
   fill: var(--color-unknown);
 }
 
+.node-group.status-REFUTED circle {
+  fill: #ef4444;
+}
+
+.node-group.status-SKIPPED circle {
+  fill: #94a3b8;
+  stroke-dasharray: 4 2;
+}
+
 .node-group.selected circle {
   stroke: var(--color-action-primary);
   stroke-width: 3;
@@ -61,6 +70,14 @@
   stroke: var(--border-color);
   stroke-width: 1.2;
   fill: none;
+  transition: stroke 0.3s, stroke-width 0.3s, filter 0.3s;
+}
+
+/* Active edge glow during searchlight transit */
+.edge-active .edge-line {
+  stroke: #00e5ff;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 6px #00e5ff);
 }
 
 .edge-label {
@@ -76,4 +93,25 @@
 .grid-dot {
   fill: var(--text-muted);
   opacity: 0.15;
+}
+
+/* ── Searchlight ring ─────────────────────────────────────────────── */
+
+.searchlight-ring {
+  stroke: #00e5ff;
+  stroke-width: 4;
+  filter: drop-shadow(0 0 8px #00e5ff) drop-shadow(0 0 20px rgba(0, 229, 255, 0.5));
+  pointer-events: none;
+  animation: searchlight-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes searchlight-pulse {
+  0%, 100% {
+    stroke-opacity: 1;
+    stroke-width: 4;
+  }
+  50% {
+    stroke-opacity: 0.5;
+    stroke-width: 6;
+  }
 }

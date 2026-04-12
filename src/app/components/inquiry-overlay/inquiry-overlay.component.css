@@ -56,32 +56,32 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.btn-yes {
+.btn-confirm {
   background: rgba(52, 211, 153, 0.15);
   color: var(--color-confirmed);
   border-color: var(--color-confirmed);
 }
 
-.btn-yes:hover {
+.btn-confirm:hover {
   background: rgba(52, 211, 153, 0.25);
 }
 
-.btn-no {
+.btn-refute {
   background: rgba(248, 113, 113, 0.15);
-  color: var(--color-impact-negative);
-  border-color: var(--color-impact-negative);
+  color: #ef4444;
+  border-color: #ef4444;
 }
 
-.btn-no:hover {
+.btn-refute:hover {
   background: rgba(248, 113, 113, 0.25);
 }
 
-.btn-unknown {
+.btn-skip {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
 }
 
-.btn-unknown:hover {
+.btn-skip:hover {
   background: var(--bg-primary);
 }
 

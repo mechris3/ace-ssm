@@ -62,7 +62,7 @@ describe('InferenceEngineService', () => {
     return {
       id: 'g1', kind: 'EXPAND', anchorNodeId: 'n1',
       anchorLabel: 'Fever', targetRelation: 'CAUSES',
-      targetType: 'ETIOLOGIC_AGENT', ...overrides,
+      targetType: 'ETIOLOGIC_AGENT', direction: 'forward', ...overrides,
     };
   }
 
@@ -500,7 +500,7 @@ describe('InferenceEngineService — Integration: Inquiry and UNKNOWN Flows', ()
     // This would normally be dispatched by the UI and handled by the reducer
     const resolveStep: IReasoningStep = {
       timestamp: Date.now(),
-      selectedGoal: { id: 'resolve', kind: 'EXPAND', anchorNodeId: 'n_treat', anchorLabel: 'Aspirin', targetRelation: 'TREATS', targetType: 'ETIOLOGIC_AGENT' },
+      selectedGoal: { id: 'resolve', kind: 'EXPAND', anchorNodeId: 'n_treat', anchorLabel: 'Aspirin', targetRelation: 'TREATS', targetType: 'ETIOLOGIC_AGENT', direction: 'forward' },
       totalScore: 0,
       factors: [{ label: 'User Input', impact: 0, explanation: 'User confirmed inquiry' }],
       strategyName: 'Balanced',
@@ -546,7 +546,7 @@ describe('InferenceEngineService — Integration: Inquiry and UNKNOWN Flows', ()
     // Simulate: user marks inquiry as UNKNOWN
     const resolveStep: IReasoningStep = {
       timestamp: Date.now(),
-      selectedGoal: { id: 'resolve', kind: 'EXPAND', anchorNodeId: 'n_treat', anchorLabel: 'Aspirin', targetRelation: 'TREATS', targetType: 'ETIOLOGIC_AGENT' },
+      selectedGoal: { id: 'resolve', kind: 'EXPAND', anchorNodeId: 'n_treat', anchorLabel: 'Aspirin', targetRelation: 'TREATS', targetType: 'ETIOLOGIC_AGENT', direction: 'forward' },
       totalScore: 0,
       factors: [{ label: 'User Input', impact: 0, explanation: 'User marked unknown' }],
       strategyName: 'Balanced',

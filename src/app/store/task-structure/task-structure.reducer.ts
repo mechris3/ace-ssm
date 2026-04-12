@@ -68,8 +68,30 @@ export const taskStructureReducer = createReducer(
   on(TaskStructureActions.loadTaskStructure, (state, { taskStructure }) => {
     const { entityTypes, relations } = taskStructure;
 
+    // Guard: entityTypes must be an array
+    if (!Array.isArray(entityTypes)) {
+      return {
+        ...state,
+        error: 'Invalid Task Structure: "entityTypes" must be an array of strings.',
+      };
+    }
+
+    // Guard: relations must be an iterable array of {type, from, to} objects
+    if (!Array.isArray(relations)) {
+      return {
+        ...state,
+        error: 'Invalid Task Structure: "relations" must be an array of {type, from, to} objects. Did you mean "relations" instead of "relationTypes"?',
+      };
+    }
+
     // Validate every relation's endpoints against the entityTypes list
     for (const relation of relations) {
+      if (!relation.type || !relation.from || !relation.to) {
+        return {
+          ...state,
+          error: `Invalid relation: each relation must have "type", "from", and "to" fields. Got: ${JSON.stringify(relation)}`,
+        };
+      }
       if (!entityTypes.includes(relation.from)) {
         return {
           ...state,

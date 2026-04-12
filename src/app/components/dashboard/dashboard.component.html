@@ -13,11 +13,10 @@
   <app-domain-console
     class="left-sidebar"
     [entityTypes]="vm.entityTypes"
-    [taskStructureError]="vm.taskStructureError"
-    [kbError]="vm.kbError"
+    [domainError]="vm.domainError"
     [weights]="vm.strategy.weights"
-    (onLoadTaskStructure)="handleLoadTaskStructure($event, vm)"
-    (onLoadKnowledgeBase)="handleLoadKnowledgeBase($event, vm)"
+    (onLoadDomain)="handleLoadDomain($event)"
+    (onSaveDomain)="handleSaveDomain()"
     (onSeedFinding)="facade.seedFinding($event.label, $event.type)"
     (onResetOnLoadChange)="resetOnLoad = $event"
     (onWeightsChange)="facade.updateStrategy($event)">
@@ -35,8 +34,7 @@
 
     <app-inquiry-overlay
       [engineState]="vm.engineState"
-      [activeGoal]="vm.activeGoal"
-      [questionNode]="getQuestionNode(vm)"
+      [pendingNode]="(pendingFindingNode$ | async)"
       (onResolve)="handleResolve($event)">
     </app-inquiry-overlay>
   </div>
