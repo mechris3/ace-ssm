@@ -335,6 +335,16 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         const total = pairCount.get(key) ?? 1;
         const idx = pairIndex.get(d.id) ?? 0;
 
+        // Self-loop: source and target are the same node.
+        // Draw a circular arc that loops out from the top of the node
+        // and returns to it, offset by index for parallel self-loops.
+        if (srcId === tgtId) {
+          const loopRadius = 35 + idx * 15;
+          const cx = x1, cy = y1 - loopRadius;
+          return `M${x1 - 8},${y1 - 12}`
+            + `C${cx - loopRadius},${cy - loopRadius},${cx + loopRadius},${cy - loopRadius},${x1 + 8},${y1 - 12}`;
+        }
+
         if (total <= 1) {
           // Single edge — straight line
           return `M${x1},${y1}L${x2},${y2}`;
@@ -358,6 +368,7 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         const x1 = src.x ?? 0, y1 = src.y ?? 0;
         const x2 = tgt.x ?? 0, y2 = tgt.y ?? 0;
         const srcId = src.id, tgtId = tgt.id;
+        if (srcId === tgtId) return x1; // Self-loop: label centered above node
         const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
         const total = pairCount.get(key) ?? 1;
         const idx = pairIndex.get(d.id) ?? 0;
@@ -373,9 +384,10 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         const x1 = src.x ?? 0, y1 = src.y ?? 0;
         const x2 = tgt.x ?? 0, y2 = tgt.y ?? 0;
         const srcId = src.id, tgtId = tgt.id;
+        const idx = pairIndex.get(d.id) ?? 0;
+        if (srcId === tgtId) return y1 - (70 + idx * 30); // Self-loop: label above the arc
         const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
         const total = pairCount.get(key) ?? 1;
-        const idx = pairIndex.get(d.id) ?? 0;
         if (total <= 1) return (y1 + y2) / 2;
         const dx = x2 - x1, dy = y2 - y1;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;

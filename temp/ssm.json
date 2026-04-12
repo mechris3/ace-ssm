@@ -1,123 +1,628 @@
 {
-    "id": "neuro_v2_realistic",
-    "name": "Neurological Emergency Protocol",
-    "structure": {
-        "entityTypes": [
-            "Condition",
-            "Clinical_Finding",
-            "Symptom"
-        ],
-        "relations": [
-            {
-                "type": "CAUSED_BY",
-                "from": "Condition",
-                "to": "Clinical_Finding"
-            },
-            {
-                "type": "EXPLAINS",
-                "from": "Clinical_Finding",
-                "to": "Symptom"
-            },
-            {
-                "type": "CONFIRMED_BY",
-                "from": "Clinical_Finding",
-                "to": "Symptom"
-            }
-        ]
-    },
-    "knowledgeBase": [
-        {
-            "id": "frag_001",
-            "subject": "Nuchal_Rigidity",
-            "subjectType": "Clinical_Finding",
-            "relation": "CONFIRMED_BY",
-            "object": "Stiff_Neck",
-            "objectType": "Symptom",
-            "metadata": {
-                "urgency": 0.8,
-                "specificity": 0.9,
-                "inquiryCost": 0.1
-            },
-            "canBeConfirmed": true
-        },
-        {
-            "id": "frag_002",
-            "subject": "Thunderclap_Onset",
-            "subjectType": "Clinical_Finding",
-            "relation": "EXPLAINS",
-            "object": "Severe_Headache",
-            "objectType": "Symptom",
-            "metadata": {
-                "urgency": 0.9,
-                "specificity": 0.95,
-                "inquiryCost": 0.1
-            },
-            "canBeConfirmed": true
-        },
-        {
-            "id": "frag_003",
-            "subject": "Bacterial_Meningitis",
-            "subjectType": "Condition",
-            "relation": "CAUSED_BY",
-            "object": "Nuchal_Rigidity",
-            "objectType": "Clinical_Finding",
-            "metadata": {
-                "urgency": 1.0,
-                "specificity": 0.7,
-                "inquiryCost": 0.5
-            },
-            "canBeConfirmed": false
-        },
-        {
-            "id": "frag_004",
-            "subject": "Subarachnoid_Hemorrhage",
-            "subjectType": "Condition",
-            "relation": "CAUSED_BY",
-            "object": "Thunderclap_Onset",
-            "objectType": "Clinical_Finding",
-            "metadata": {
-                "urgency": 1.0,
-                "specificity": 0.95,
-                "inquiryCost": 0.5
-            },
-            "canBeConfirmed": false
-        },
-        {
-            "id": "frag_005",
-            "subject": "Subarachnoid_Hemorrhage",
-            "subjectType": "Condition",
-            "relation": "CAUSED_BY",
-            "object": "Nuchal_Rigidity",
-            "objectType": "Clinical_Finding",
-            "metadata": {
-                "urgency": 1.0,
-                "specificity": 0.6,
-                "inquiryCost": 0.5
-            },
-            "canBeConfirmed": false
-        }
+  "id": "neomycin_paper_example",
+  "name": "NEOMYCIN Medical Diagnosis — Benaroch 1998 Fig.3 (4 Findings)",
+  "structure": {
+    "entityTypes": [
+      "Disease",
+      "Finding",
+      "Etiologic_Agent",
+      "Question",
+      "Organ_System",
+      "Entry_Point"
     ],
-    "ssm": {
-        "nodes": [
-            {
-                "id": "Stiff_Neck",
-                "label": "Stiff Neck",
-                "type": "Symptom",
-                "status": "CONFIRMED",
-                "canBeConfirmed": true
-            },
-            {
-                "id": "Severe_Headache",
-                "label": "Severe Headache",
-                "type": "Symptom",
-                "status": "CONFIRMED",
-                "canBeConfirmed": true
-            }
-        ],
-        "edges": [],
-        "history": [],
-        "isRunning": false,
-        "waitingForUser": false,
-        "pendingFindingNodeId": null
+    "relations": [
+      { "type": "CAUSES",       "from": "Disease",          "to": "Finding" },
+      { "type": "SUBTYPE_OF",   "from": "Disease",          "to": "Disease" },
+      { "type": "INDUCED_BY",   "from": "Disease",          "to": "Etiologic_Agent" },
+      { "type": "SUBSUMES",     "from": "Finding",          "to": "Finding" },
+      { "type": "CONFIRMED_BY", "from": "Finding",          "to": "Question" },
+      { "type": "SUBTYPE_OF",   "from": "Etiologic_Agent",  "to": "Etiologic_Agent" },
+      { "type": "RESIDES_IN",   "from": "Etiologic_Agent",  "to": "Organ_System" },
+      { "type": "ENTERS_VIA",   "from": "Etiologic_Agent",  "to": "Entry_Point" },
+      { "type": "SUBSUMES",     "from": "Organ_System",     "to": "Organ_System" }
+    ],
+    "goalConstraints": [
+      {
+        "nodeType": "Disease",
+        "requiredRelation": "CAUSES",
+        "direction": "forward"
+      }
+    ]
+  },
+  "knowledgeBase": [
+    {
+      "id": "kb_001",
+      "subject": "Increased_Pressure_In_Brain",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Diplopia",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.8, "specificity": 0.8, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_002",
+      "subject": "Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Headache",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.9, "specificity": 0.5, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_003",
+      "subject": "Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Nausea",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.9, "specificity": 0.3, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_004",
+      "subject": "Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Vomiting",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.9, "specificity": 0.3, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_005",
+      "subject": "Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Stiff_Neck_On_Flexion",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.9, "specificity": 0.7, "inquiryCost": 0.2 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_006",
+      "subject": "Brain_Mass_Lesion",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Diplopia",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_007",
+      "subject": "Brain_Mass_Lesion",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Headache",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.7, "specificity": 0.4, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_008",
+      "subject": "Increased_Pressure_In_Brain",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Headache",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.8, "specificity": 0.5, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_009",
+      "subject": "Increased_Pressure_In_Brain",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Nausea",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.8, "specificity": 0.3, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_010",
+      "subject": "Increased_Pressure_In_Brain",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Vomiting",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.8, "specificity": 0.3, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_011",
+      "subject": "Focal_Process",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Weakness",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.6, "specificity": 0.7, "inquiryCost": 0.2 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_013",
+      "subject": "Focal_Process",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Diplopia",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.6, "specificity": 0.5, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_014",
+      "subject": "Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Diplopia",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.9, "specificity": 0.4, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_015",
+      "subject": "Chronic_Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Headache",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.9, "specificity": 0.4, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_016",
+      "subject": "Chronic_Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Stiff_Neck_On_Flexion",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.2 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_017",
+      "subject": "Diplopia",
+      "subjectType": "Finding",
+      "relation": "SUBSUMES",
+      "object": "Serious_CNS_Finding",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.8, "specificity": 0.9, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_018",
+      "subject": "Weakness",
+      "subjectType": "Finding",
+      "relation": "SUBSUMES",
+      "object": "Focal_Neurological_Finding",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.6, "specificity": 0.7, "inquiryCost": 0.2 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_019",
+      "subject": "Stiff_Neck_On_Flexion",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Neck_Flexion_Test",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.9, "specificity": 0.8, "inquiryCost": 0.2 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_020",
+      "subject": "Fever",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Temperature_Check",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.7, "specificity": 0.95, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_021",
+      "subject": "Weakness",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Motor_Strength_Test",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.6, "specificity": 0.8, "inquiryCost": 0.2 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_022",
+      "subject": "Brain_Mass_Lesion",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Focal_Process",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.3 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_023",
+      "subject": "Increased_Pressure_In_Brain",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Brain_Mass_Lesion",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.8, "specificity": 0.7, "inquiryCost": 0.3 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_024",
+      "subject": "Chronic_Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Meningitis",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.9, "specificity": 0.7, "inquiryCost": 0.3 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_025",
+      "subject": "Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Infectious_Disease",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.3 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_026",
+      "subject": "TB_Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Chronic_Meningitis",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.4 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_027",
+      "subject": "Fungal_Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Chronic_Meningitis",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.4 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_028",
+      "subject": "RX_Bacterial_Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Chronic_Meningitis",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.85, "specificity": 0.6, "inquiryCost": 0.4 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_029",
+      "subject": "Brain_Tumor",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Brain_Mass_Lesion",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.7, "specificity": 0.5, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_030",
+      "subject": "Hematoma",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Brain_Mass_Lesion",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.7, "specificity": 0.5, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_031",
+      "subject": "Collection_Of_Pus",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Brain_Mass_Lesion",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.7, "specificity": 0.5, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_032",
+      "subject": "Acute_Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Meningitis",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.3 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_033",
+      "subject": "Bacterial_Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Acute_Meningitis",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.95, "specificity": 0.7, "inquiryCost": 0.4 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_034",
+      "subject": "Viral_Meningitis",
+      "subjectType": "Disease",
+      "relation": "SUBTYPE_OF",
+      "object": "Acute_Meningitis",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.6, "specificity": 0.5, "inquiryCost": 0.3 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_035",
+      "subject": "Bacteria",
+      "subjectType": "Etiologic_Agent",
+      "relation": "SUBTYPE_OF",
+      "object": "Gram_Neg_Rod",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.8, "specificity": 0.5, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_036",
+      "subject": "Bacteria",
+      "subjectType": "Etiologic_Agent",
+      "relation": "SUBTYPE_OF",
+      "object": "Gram_Pos_Rod",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.8, "specificity": 0.5, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_037",
+      "subject": "E_Coli",
+      "subjectType": "Etiologic_Agent",
+      "relation": "SUBTYPE_OF",
+      "object": "Gram_Neg_Rod",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.8, "specificity": 0.6, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_038",
+      "subject": "Klebsiella_Pneumoniae",
+      "subjectType": "Etiologic_Agent",
+      "relation": "SUBTYPE_OF",
+      "object": "Gram_Neg_Rod",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.8, "specificity": 0.6, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_039",
+      "subject": "Meningitis",
+      "subjectType": "Disease",
+      "relation": "INDUCED_BY",
+      "object": "Bacteria",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_040",
+      "subject": "Bacteria",
+      "subjectType": "Etiologic_Agent",
+      "relation": "RESIDES_IN",
+      "object": "Meninges",
+      "objectType": "Organ_System",
+      "metadata": { "urgency": 0.9, "specificity": 0.7, "inquiryCost": 0.4 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_041",
+      "subject": "Bacteria",
+      "subjectType": "Etiologic_Agent",
+      "relation": "ENTERS_VIA",
+      "object": "Blood_Brain_Barrier",
+      "objectType": "Entry_Point",
+      "metadata": { "urgency": 0.9, "specificity": 0.6, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_042",
+      "subject": "Meninges",
+      "subjectType": "Organ_System",
+      "relation": "SUBSUMES",
+      "object": "Central_Nervous_System",
+      "objectType": "Organ_System",
+      "metadata": { "urgency": 0.5, "specificity": 0.5, "inquiryCost": 0.1 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_043",
+      "subject": "Tuberculosis_Exposure",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "TB_Exposure_Test",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_044",
+      "subject": "Recent_Pneumonia",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Recent_Pneumonia_Test",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.3 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_045",
+      "subject": "Travel_To_San_Joaquin_Valley",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Travel_San_Joaquin_Valley_Test",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_046",
+      "subject": "Focal_Neurological_Finding",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Weakness_Test",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.6, "specificity": 0.7, "inquiryCost": 0.2 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_047",
+      "subject": "Fever",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Temperature_Check",
+      "objectType": "Question",
+      "metadata": { "urgency": 0.7, "specificity": 0.9, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_048",
+      "subject": "Coccidiomycosis",
+      "subjectType": "Etiologic_Agent",
+      "relation": "SUBTYPE_OF",
+      "object": "Fungus",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_049",
+      "subject": "Histoplasmosis",
+      "subjectType": "Etiologic_Agent",
+      "relation": "SUBTYPE_OF",
+      "object": "Fungus",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.7, "specificity": 0.6, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_050",
+      "subject": "Fungal_Meningitis",
+      "subjectType": "Disease",
+      "relation": "INDUCED_BY",
+      "object": "Fungus",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.85, "specificity": 0.6, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_051",
+      "subject": "Chronic_Meningitis",
+      "subjectType": "Disease",
+      "relation": "INDUCED_BY",
+      "object": "Bacteria",
+      "objectType": "Etiologic_Agent",
+      "metadata": { "urgency": 0.9, "specificity": 0.5, "inquiryCost": 0.5 },
+      "canBeConfirmed": false
+    },
+    {
+      "id": "kb_052",
+      "subject": "TB_Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Tuberculosis_Exposure",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_053",
+      "subject": "TB_Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Recent_Pneumonia",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.85, "specificity": 0.7, "inquiryCost": 0.3 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_054",
+      "subject": "Fungal_Meningitis",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Travel_To_San_Joaquin_Valley",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.85, "specificity": 0.8, "inquiryCost": 0.3 },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_055",
+      "subject": "Infectious_Disease",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Fever",
+      "objectType": "Finding",
+      "metadata": { "urgency": 0.7, "specificity": 0.9, "inquiryCost": 0.1 },
+      "canBeConfirmed": true
     }
+  ],
+  "ssm": {
+    "nodes": [
+      {
+        "id": "seed_diplopia",
+        "label": "Diplopia",
+        "type": "Finding",
+        "status": "CONFIRMED",
+        "cf": 1.0,
+        "canBeConfirmed": false
+      },
+      {
+        "id": "seed_headache",
+        "label": "Headache",
+        "type": "Finding",
+        "status": "CONFIRMED",
+        "cf": 1.0,
+        "canBeConfirmed": false
+      },
+      {
+        "id": "seed_nausea",
+        "label": "Nausea",
+        "type": "Finding",
+        "status": "CONFIRMED",
+        "cf": 1.0,
+        "canBeConfirmed": false
+      },
+      {
+        "id": "seed_vomiting",
+        "label": "Vomiting",
+        "type": "Finding",
+        "status": "CONFIRMED",
+        "cf": 1.0,
+        "canBeConfirmed": false
+      }
+    ],
+    "edges": [],
+    "history": [],
+    "isRunning": false,
+    "waitingForUser": false,
+    "pendingFindingNodeId": null
+  },
+  "strategy": {
+    "name": "Urgency-Focused",
+    "weights": {
+      "urgency": 1.5,
+      "parsimony": 1.0,
+      "costAversion": 0.5
+    },
+    "pacerDelay": 1500,
+    "goalOrdering": {
+      "Disease": ["CAUSES", "SUBTYPE_OF", "INDUCED_BY"],
+      "Finding": ["SUBSUMES", "CONFIRMED_BY"]
+    }
+  }
 }

@@ -8,7 +8,7 @@
 |----------|---------------|
 | [Inference Engine Reference](./INFERENCE_ENGINE_REFERENCE.md) | **The authoritative reference.** Complete specification of the engine: Data Trinity, Triple-Operator cycle, scoring formulas, FSM, inquiry system, diagnostic differential, strategic principles (S_G/S_L), certainty factors, goal constraints, domain validation, and all 10 design invariants. Cross-referenced against both Benaroch papers with `[Ref: MD Sec X.X]` tags in the code. |
 | [Paper Gap Analysis](./PAPER_GAP_ANALYSIS.md) | Maps both Benaroch (1998) papers to our implementation. 8 gaps identified, all implemented. Tracks alignment between the academic architecture and the codebase. |
-| [Correctness Properties](./PROPERTIES.md) | 17 formal properties defining "correct" for the engine, verified with property-based tests. **Note:** needs a future update pass to add properties for CFs, diagnostic differential, S_G, S_L, goal constraints, and domain validation. |
+| [Correctness Properties](./PROPERTIES.md) | 23 formal properties defining "correct" for the engine, verified with property-based tests. Covers: serialization, validation, append-only invariants, scoring formula (6 terms), anchor penalties (3 types), KB matching with graph merging, inquiry resolution (4 actions), FSM transitions, certainty factors, diagnostic differential, solution focus (S_G), goal ordering (S_L), declarative constraints, and domain validation. |
 
 ## Source Papers
 
