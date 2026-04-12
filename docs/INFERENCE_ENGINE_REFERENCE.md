@@ -54,6 +54,8 @@ Defines the domain grammar. Domain-agnostic — entity types are plain strings, 
 
 **Validation:** On load, every relation's `from` and `to` must reference entries in `entityTypes`. If any relation references an unknown type, the entire load is rejected.
 
+**Goal Constraints:** Optional array of declarative goal constraints that the SSM must satisfy. See Section 4.12 for details.
+
 ### 2.2 Knowledge Base (Layer 2)
 
 A flat array of fragments. Each fragment encodes one directed relationship between two domain concepts.
@@ -206,7 +208,7 @@ Every SSM mutation produces exactly one ReasoningStep appended to the history.
 ### 3.1 Goal Generator (Operator 1)
 
 **Input:** SSM state snapshot + Task Structure definition.
-**Output:** Array of goals (EXPAND + STATUS_UPGRADE).
+**Output:** Array of goals (EXPAND + STATUS_UPGRADE + constraint-based goals from Section 4.12).
 
 #### 3.1.1 EXPAND Goal Detection (Gap Detection)
 
@@ -278,7 +280,7 @@ Goals are sorted by `totalScore` descending. Ties are broken by array order, whi
 #### 3.2.5 Rationale Packet
 
 The Search Operator produces a Rationale Packet for the winning goal containing:
-- Three scored factors: Clinical Urgency, Parsimony, Inquiry Cost (each with label, numeric impact, and explanation)
+- Scored factors: Clinical Urgency, Parsimony, Inquiry Cost, Certainty, Solution Focus, S_L Ordering (each with label, numeric impact, and explanation). Not all factors are present on every goal — focus and ordering bonuses only appear when applicable.
 - The `actionTaken` field is left empty — the orchestrator fills it in after the Knowledge Operator returns
 
 ### 3.3 Knowledge Operator (Operator 3)
@@ -570,10 +572,10 @@ Confirm, Refute, and Skip actions each produce a ReasoningStep in the history:
 | Slice | Feature Key | Contents |
 |-------|-------------|----------|
 | **SSM** | `ssm` | Nodes, edges, history, flags (`waitingForUser`, `pendingFindingNodeId`) |
-| **Engine** | `engine` | FSM state (`IDLE`/`THINKING`/`INQUIRY`/`RESOLVED`), active goal |
-| **Task Structure** | `taskStructure` | Entity types, relations, loaded flag, error |
+| **Engine** | `engine` | FSM state (`IDLE`/`THINKING`/`INQUIRY`/`RESOLVED`), active goal, solution focus node ID |
+| **Task Structure** | `taskStructure` | Entity types, relations, goal constraints, loaded flag, error |
 | **Knowledge Base** | `knowledgeBase` | Fragments, loaded flag, error |
-| **Strategy** | `strategy` | Name, weights, pacer delay |
+| **Strategy** | `strategy` | Name, weights, pacer delay, goal ordering (S_L) |
 
 ### 6.2 SSM Actions
 
@@ -636,6 +638,7 @@ When a domain JSON is loaded:
 4. Dispatch `loadKnowledgeBase` (triggers inline validation of metadata bounds).
 5. If `ssm` is present, normalize it (handle alternate field names like `auditTrail` → `history`, fill missing fields with defaults) and dispatch `restoreSSM`.
 6. If `strategy` is present, dispatch `updateStrategy` + `updatePacerDelay`.
+7. Run domain validation (Section 4.11) and log any warnings to the console.
 
 ### 7.2 Seed Findings
 
