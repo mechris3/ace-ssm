@@ -58,3 +58,21 @@ export const selectWaitingForUser = createSelector(
   selectSSMState,
   (state) => state.waitingForUser
 );
+
+/**
+ * Selects the most recent 50 reasoning steps from the history.
+ * Used as the store-side limit for the Audit Trail scroll-back buffer.
+ */
+export const selectRecentHistory = createSelector(
+  selectHistory,
+  (history) => history.slice(-50)
+);
+
+/**
+ * Selects the most recent 20 reasoning steps from the history.
+ * Used as the DOM render limit for the Audit Trail component.
+ */
+export const selectRenderedHistory = createSelector(
+  selectHistory,
+  (history) => history.slice(-20)
+);

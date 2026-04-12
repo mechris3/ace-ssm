@@ -1,0 +1,63 @@
+:host {
+  display: grid;
+  grid-template-columns: var(--sidebar-left-width) 1fr var(--sidebar-right-width);
+  grid-template-rows: var(--control-bar-height) 1fr var(--status-bar-height);
+  grid-template-areas:
+    "control-bar  control-bar  control-bar"
+    "left-sidebar workspace    right-sidebar"
+    "status-bar   status-bar   status-bar";
+  height: 100vh;
+  overflow: hidden;
+}
+
+:host(.sidebar-collapsed) {
+  --sidebar-left-width: 0px;
+}
+
+.control-bar {
+  grid-area: control-bar;
+}
+
+.left-sidebar {
+  grid-area: left-sidebar;
+  overflow: hidden;
+}
+
+.workspace {
+  grid-area: workspace;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+
+.right-sidebar {
+  grid-area: right-sidebar;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.right-upper {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow-y: auto;
+}
+
+.right-lower {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.status-bar {
+  grid-area: status-bar;
+}
+
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  height: 100%;
+}

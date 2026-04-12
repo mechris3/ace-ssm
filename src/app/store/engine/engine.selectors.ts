@@ -23,3 +23,13 @@ export const selectEngineState = createSelector(
   selectEngineSlice,
   (slice) => slice.state
 );
+
+/**
+ * Selects the currently active goal from the engine store slice.
+ * Used by the SSM Graph Component to apply the Searchlight Effect
+ * to the anchor node of the active goal.
+ */
+export const selectActiveGoal = createSelector(
+  selectEngineSlice,
+  (slice) => slice.activeGoal
+);

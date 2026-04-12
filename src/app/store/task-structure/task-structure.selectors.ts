@@ -38,3 +38,15 @@ export const selectRelations = createSelector(
   selectTaskStructureState,
   (state) => state.relations
 );
+
+/** Selects whether a Task Structure has been successfully loaded. */
+export const selectTaskStructureLoaded = createSelector(
+  selectTaskStructureState,
+  (state) => state.loaded
+);
+
+/** Selects the Task Structure validation error, or null if no error. */
+export const selectTaskStructureError = createSelector(
+  selectTaskStructureState,
+  (state) => state.error
+);

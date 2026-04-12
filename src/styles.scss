@@ -1,1 +1,16 @@
-/* You can add global styles to this file, and also import other style files */
+@import 'styles/variables.css';
+@import 'styles/animations.css';
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}

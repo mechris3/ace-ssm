@@ -1,0 +1,25 @@
+:root {
+  --bg-primary: #1a1c1e;
+  --bg-secondary: #22252a;
+  --bg-tertiary: #2c3038;
+  --border-color: #3f444d;
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0a6;
+  --text-muted: #6b7280;
+  --color-confirmed: #34d399;
+  --color-hypothesis: #60a5fa;
+  --color-question: #fbbf24;
+  --color-unknown: #9ca3af;
+  --color-action-primary: #00a3ff;
+  --color-action-hover: #0090e0;
+  --color-inquiry-amber: #f59e0b;
+  --color-impact-positive: #34d399;
+  --color-impact-negative: #f87171;
+  --color-searchlight: rgba(0, 163, 255, 0.4);
+  --sidebar-left-width: 280px;
+  --sidebar-right-width: 320px;
+  --control-bar-height: 48px;
+  --status-bar-height: 32px;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}

@@ -1,0 +1,36 @@
+<button class="collapse-toggle" (click)="toggleCollapse()">
+  {{ collapsed ? '▶' : '◀' }}
+</button>
+
+<div class="console-content" [class.hidden]="collapsed">
+  <h3 class="section-title">Task Structure</h3>
+  <textarea [(ngModel)]="taskStructureJson" placeholder="Paste Task Structure JSON..." rows="5"></textarea>
+  <button class="btn" (click)="loadTaskStructure()">Load Task Structure</button>
+  <div class="error" *ngIf="taskStructureError">{{ taskStructureError }}</div>
+
+  <h3 class="section-title">Knowledge Base</h3>
+  <textarea [(ngModel)]="kbJson" placeholder="Paste Knowledge Base JSON..." rows="5"></textarea>
+  <button class="btn" (click)="loadKnowledgeBase()">Load Knowledge Base</button>
+  <div class="error" *ngIf="kbError">{{ kbError }}</div>
+
+  <h3 class="section-title">Seed Finding</h3>
+  <div class="seed-form">
+    <input type="text" [(ngModel)]="seedLabel" placeholder="Finding label" />
+    <select [(ngModel)]="seedType">
+      <option value="" disabled>Type</option>
+      <option *ngFor="let t of entityTypes" [value]="t">{{ t }}</option>
+    </select>
+    <button class="btn" (click)="addSeedFinding()">Add</button>
+  </div>
+
+  <div class="toggle-row">
+    <label>
+      <input type="checkbox" [checked]="resetOnLoad" (change)="toggleResetOnLoad()" />
+      Reset on Load
+    </label>
+  </div>
+
+  <hr class="divider" />
+
+  <app-strategy-panel [weights]="weights" (onWeightsChange)="onWeightsChange.emit($event)"></app-strategy-panel>
+</div>

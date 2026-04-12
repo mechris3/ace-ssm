@@ -25,13 +25,14 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { InferenceEngineService } from './services/inference-engine.service';
+import { DashboardComponent } from './components/dashboard/dashboard.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [],
+  imports: [DashboardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `<h1>ACE-SSM Core Engine</h1>`,
+  template: `<app-dashboard></app-dashboard>`,
   styles: [],
 })
 export class AppComponent {

@@ -51,3 +51,15 @@ export const selectFragmentsBySubjectAndRelation = (subject: string, relation: s
     selectAllFragments,
     (fragments) => fragments.filter(f => f.subject === subject && f.relation === relation)
   );
+
+/** Selects whether Knowledge Base fragments have been successfully loaded. */
+export const selectKnowledgeBaseLoaded = createSelector(
+  selectKnowledgeBaseState,
+  (state) => state.loaded
+);
+
+/** Selects the Knowledge Base validation error, or null if no error. */
+export const selectKnowledgeBaseError = createSelector(
+  selectKnowledgeBaseState,
+  (state) => state.error
+);

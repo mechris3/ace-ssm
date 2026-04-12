@@ -1,0 +1,10 @@
+<button class="btn" [disabled]="runDisabled" (click)="onRun.emit()">▶ Run</button>
+<button class="btn" [disabled]="stepDisabled" (click)="onStep.emit()">⏭ Step</button>
+<button class="btn" [disabled]="pauseDisabled" (click)="onPause.emit()">⏸ Pause</button>
+<button class="btn" (click)="onReset.emit()">⟲ Reset</button>
+
+<div class="speed-control">
+  <label>Pacer</label>
+  <input type="range" min="0" max="2000" step="10" [value]="pacerDelay" (input)="onSliderInput($event)" />
+  <span class="speed-value">{{ pacerDelay }}ms</span>
+</div>

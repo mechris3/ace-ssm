@@ -31,10 +31,10 @@ describe('AppComponent', () => {
     expect(app).toBeTruthy();
   });
 
-  it('should render title', () => {
+  it('should render dashboard', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('h1')?.textContent).toContain('ACE-SSM Core Engine');
+    expect(compiled.querySelector('app-dashboard')).toBeTruthy();
   });
 });

@@ -1,0 +1,19 @@
+<h3 class="panel-title">Strategy Weights</h3>
+
+<div class="slider-row">
+  <label>Urgency</label>
+  <input type="range" min="0" max="5" step="0.1" [value]="weights.urgency" (input)="onSlider('urgency', $event)" />
+  <span class="readout">{{ weights.urgency.toFixed(1) }}</span>
+</div>
+
+<div class="slider-row">
+  <label>Parsimony</label>
+  <input type="range" min="0" max="5" step="0.1" [value]="weights.parsimony" (input)="onSlider('parsimony', $event)" />
+  <span class="readout">{{ weights.parsimony.toFixed(1) }}</span>
+</div>
+
+<div class="slider-row">
+  <label>Cost Aversion</label>
+  <input type="range" min="0" max="5" step="0.1" [value]="weights.costAversion" (input)="onSlider('costAversion', $event)" />
+  <span class="readout">{{ weights.costAversion.toFixed(1) }}</span>
+</div>

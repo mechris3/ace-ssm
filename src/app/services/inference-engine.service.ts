@@ -120,6 +120,7 @@ export class InferenceEngineService {
     if (goals.length === 0) {
       // No goals remain — the SSM is fully saturated. Transition to RESOLVED
       // and stop the pacer. The user must reset to start a new inference cycle.
+      this.store.dispatch(EngineActions.setActiveGoal({ goal: null }));
       this.store.dispatch(EngineActions.engineResolved());
       this.pacer.pause();
       return;
@@ -127,6 +128,9 @@ export class InferenceEngineService {
 
     // Step 2: Search Operator — score all goals and pick the winner
     const { selectedGoal, rationale } = this.scoreGoals(goals, ssm, kb, strategy);
+
+    // Dispatch activeGoal so the Searchlight can highlight the anchor node
+    this.store.dispatch(EngineActions.setActiveGoal({ goal: selectedGoal }));
 
     // Step 3: Knowledge Operator — resolve the winning goal against the KB
     const result = this.resolveGoal(selectedGoal, kb);

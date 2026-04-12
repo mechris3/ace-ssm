@@ -13,7 +13,8 @@
  * it as a pure state diagram without considering payload variations.
  */
 
-import { createAction } from '@ngrx/store';
+import { createAction, props } from '@ngrx/store';
+import { IGoal } from '../../models/ssm.model';
 
 /**
  * Transitions the engine from IDLE to THINKING.
@@ -59,3 +60,14 @@ export const engineReset = createAction('[Engine] Reset');
  * Only valid from INQUIRY state; ignored in all other states.
  */
 export const engineInquiryAnswered = createAction('[Engine] Inquiry Answered');
+
+/**
+ * Sets the currently active goal during a pulse.
+ * Dispatched by the Inference Engine after the Search Operator picks a winner,
+ * before the Knowledge Operator runs. Used by the Searchlight Effect to
+ * highlight the anchor node. Set to null on reset or resolution.
+ */
+export const setActiveGoal = createAction(
+  '[Engine] Set Active Goal',
+  props<{ goal: IGoal | null }>()
+);

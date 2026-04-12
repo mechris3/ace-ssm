@@ -1,0 +1,11 @@
+<span class="badge" [class]="badgeClass">{{ engineState }}</span>
+<span class="stat">Nodes: <strong>{{ nodeCount }}</strong></span>
+<span class="stat">Edges: <strong>{{ edgeCount }}</strong></span>
+<span class="stat">Delay: <strong>{{ pacerDelay }}ms</strong></span>
+<span class="heartbeat-wrap">
+  <svg width="12" height="12" viewBox="0 0 12 12">
+    <circle cx="6" cy="6" r="5" fill="var(--color-action-primary)"
+            [class.heartbeat-pulse]="pulseActive"
+            style="transition: opacity 0.3s ease-out;" />
+  </svg>
+</span>

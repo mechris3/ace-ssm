@@ -14,7 +14,7 @@ const ALL_ENGINE_STATES: EngineState[] = [
 
 const engineStateArb: fc.Arbitrary<EngineState> = fc.constantFrom(...ALL_ENGINE_STATES);
 
-const engineSliceArb: fc.Arbitrary<EngineSliceState> = engineStateArb.map(s => ({ state: s }));
+const engineSliceArb: fc.Arbitrary<EngineSliceState> = engineStateArb.map(s => ({ state: s, activeGoal: null }));
 
 // ─── Property 15: Engine FSM Transition Correctness ──────────────────────────
 // **Validates: Requirements 11.2, 11.3, 11.4, 11.5, 11.6, 11.7**
@@ -33,7 +33,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
 
   it('engineStart from IDLE should transition to THINKING', () => {
     fc.assert(
-      fc.property(fc.constant({ state: EngineState.IDLE } as EngineSliceState), (prev) => {
+      fc.property(fc.constant({ state: EngineState.IDLE, activeGoal: null } as EngineSliceState), (prev) => {
         const next = engineReducer(prev, EngineActions.engineStart());
         expect(next.state).toBe(EngineState.THINKING);
       }),
@@ -43,7 +43,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
 
   it('engineInquiry from THINKING should transition to INQUIRY', () => {
     fc.assert(
-      fc.property(fc.constant({ state: EngineState.THINKING } as EngineSliceState), (prev) => {
+      fc.property(fc.constant({ state: EngineState.THINKING, activeGoal: null } as EngineSliceState), (prev) => {
         const next = engineReducer(prev, EngineActions.engineInquiry());
         expect(next.state).toBe(EngineState.INQUIRY);
       }),
@@ -53,7 +53,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
 
   it('engineResolved from THINKING should transition to RESOLVED', () => {
     fc.assert(
-      fc.property(fc.constant({ state: EngineState.THINKING } as EngineSliceState), (prev) => {
+      fc.property(fc.constant({ state: EngineState.THINKING, activeGoal: null } as EngineSliceState), (prev) => {
         const next = engineReducer(prev, EngineActions.engineResolved());
         expect(next.state).toBe(EngineState.RESOLVED);
       }),
@@ -63,7 +63,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
 
   it('enginePause from THINKING should transition to IDLE', () => {
     fc.assert(
-      fc.property(fc.constant({ state: EngineState.THINKING } as EngineSliceState), (prev) => {
+      fc.property(fc.constant({ state: EngineState.THINKING, activeGoal: null } as EngineSliceState), (prev) => {
         const next = engineReducer(prev, EngineActions.enginePause());
         expect(next.state).toBe(EngineState.IDLE);
       }),
@@ -73,7 +73,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
 
   it('engineInquiryAnswered from INQUIRY should transition to IDLE', () => {
     fc.assert(
-      fc.property(fc.constant({ state: EngineState.INQUIRY } as EngineSliceState), (prev) => {
+      fc.property(fc.constant({ state: EngineState.INQUIRY, activeGoal: null } as EngineSliceState), (prev) => {
         const next = engineReducer(prev, EngineActions.engineInquiryAnswered());
         expect(next.state).toBe(EngineState.IDLE);
       }),
@@ -86,7 +86,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
     const nonIdleStates = [EngineState.THINKING, EngineState.INQUIRY, EngineState.RESOLVED];
     fc.assert(
       fc.property(fc.constantFrom(...nonIdleStates), (s) => {
-        const prev: EngineSliceState = { state: s };
+        const prev: EngineSliceState = { state: s, activeGoal: null };
         const next = engineReducer(prev, EngineActions.engineStart());
         expect(next.state).toBe(s);
       }),
@@ -98,7 +98,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
     const nonThinkingStates = [EngineState.IDLE, EngineState.INQUIRY, EngineState.RESOLVED];
     fc.assert(
       fc.property(fc.constantFrom(...nonThinkingStates), (s) => {
-        const prev: EngineSliceState = { state: s };
+        const prev: EngineSliceState = { state: s, activeGoal: null };
         const next = engineReducer(prev, EngineActions.enginePause());
         expect(next.state).toBe(s);
       }),
@@ -110,7 +110,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
     const nonThinkingStates = [EngineState.IDLE, EngineState.INQUIRY, EngineState.RESOLVED];
     fc.assert(
       fc.property(fc.constantFrom(...nonThinkingStates), (s) => {
-        const prev: EngineSliceState = { state: s };
+        const prev: EngineSliceState = { state: s, activeGoal: null };
         const next = engineReducer(prev, EngineActions.engineInquiry());
         expect(next.state).toBe(s);
       }),
@@ -122,7 +122,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
     const nonThinkingStates = [EngineState.IDLE, EngineState.INQUIRY, EngineState.RESOLVED];
     fc.assert(
       fc.property(fc.constantFrom(...nonThinkingStates), (s) => {
-        const prev: EngineSliceState = { state: s };
+        const prev: EngineSliceState = { state: s, activeGoal: null };
         const next = engineReducer(prev, EngineActions.engineResolved());
         expect(next.state).toBe(s);
       }),
@@ -134,7 +134,7 @@ describe('Property 15: Engine FSM Transition Correctness', () => {
     const nonInquiryStates = [EngineState.IDLE, EngineState.THINKING, EngineState.RESOLVED];
     fc.assert(
       fc.property(fc.constantFrom(...nonInquiryStates), (s) => {
-        const prev: EngineSliceState = { state: s };
+        const prev: EngineSliceState = { state: s, activeGoal: null };
         const next = engineReducer(prev, EngineActions.engineInquiryAnswered());
         expect(next.state).toBe(s);
       }),

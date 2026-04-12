@@ -1,0 +1,132 @@
+:host {
+  display: block;
+}
+
+.inquiry-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  background: rgba(26, 28, 30, 0.7);
+}
+
+.inquiry-panel {
+  background: var(--bg-secondary);
+  border: 2px solid var(--color-inquiry-amber);
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.inquiry-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-inquiry-amber);
+  margin: 0 0 16px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.inquiry-question {
+  font-size: 16px;
+  color: var(--text-primary);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.inquiry-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.inquiry-btn {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-yes {
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--color-confirmed);
+  border-color: var(--color-confirmed);
+}
+
+.btn-yes:hover {
+  background: rgba(52, 211, 153, 0.25);
+}
+
+.btn-no {
+  background: rgba(248, 113, 113, 0.15);
+  color: var(--color-impact-negative);
+  border-color: var(--color-impact-negative);
+}
+
+.btn-no:hover {
+  background: rgba(248, 113, 113, 0.25);
+}
+
+.btn-unknown {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.btn-unknown:hover {
+  background: var(--bg-primary);
+}
+
+/* Label input section */
+.label-input-section {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.label-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--color-inquiry-amber);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  outline: none;
+}
+
+.label-input::placeholder {
+  color: var(--text-muted);
+}
+
+.label-input:focus {
+  border-color: var(--color-confirmed);
+}
+
+.submit-btn {
+  padding: 8px 16px;
+  background: var(--color-confirmed);
+  color: var(--bg-primary);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit-btn:hover {
+  opacity: 0.9;
+}
+
+.submit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -1,0 +1,71 @@
+<ng-container *ngIf="vm$ | async as vm">
+  <app-control-bar
+    class="control-bar"
+    [engineState]="vm.engineState"
+    [pacerDelay]="vm.strategy.pacerDelay"
+    (onRun)="facade.run()"
+    (onStep)="facade.step()"
+    (onPause)="facade.pause()"
+    (onReset)="facade.reset()"
+    (onSpeedChange)="facade.setSpeed($event)">
+  </app-control-bar>
+
+  <app-domain-console
+    class="left-sidebar"
+    [entityTypes]="vm.entityTypes"
+    [taskStructureError]="vm.taskStructureError"
+    [kbError]="vm.kbError"
+    [weights]="vm.strategy.weights"
+    (onLoadTaskStructure)="handleLoadTaskStructure($event, vm)"
+    (onLoadKnowledgeBase)="handleLoadKnowledgeBase($event, vm)"
+    (onSeedFinding)="facade.seedFinding($event.label, $event.type)"
+    (onResetOnLoadChange)="resetOnLoad = $event"
+    (onWeightsChange)="facade.updateStrategy($event)">
+  </app-domain-console>
+
+  <div class="workspace">
+    <app-ssm-graph
+      [nodes]="vm.ssm.nodes"
+      [edges]="vm.ssm.edges"
+      [activeGoal]="vm.activeGoal"
+      [selectedNodeId]="vm.selectedNodeId"
+      [highlightNodeId]="highlightNodeId"
+      (onNodeClick)="handleNodeClick($event)">
+    </app-ssm-graph>
+
+    <app-inquiry-overlay
+      [engineState]="vm.engineState"
+      [activeGoal]="vm.activeGoal"
+      [questionNode]="getQuestionNode(vm)"
+      (onResolve)="handleResolve($event)">
+    </app-inquiry-overlay>
+  </div>
+
+  <div class="right-sidebar">
+    <div class="right-upper">
+      <app-node-inspector
+        [selectedNode]="getSelectedNode(vm)"
+        [edges]="vm.ssm.edges"
+        [nodes]="vm.ssm.nodes"
+        (onClearSelection)="facade.selectNode(null)"
+        (onNodeLinkClick)="facade.selectNode($event)">
+      </app-node-inspector>
+    </div>
+    <div class="right-lower">
+      <app-audit-trail
+        [steps]="(renderedSteps$ | async) ?? []"
+        [allSteps]="(recentSteps$ | async) ?? []"
+        [scrollToNodeId]="scrollToNodeId"
+        (onStepClick)="handleStepClick($event)">
+      </app-audit-trail>
+    </div>
+  </div>
+
+  <app-status-bar
+    class="status-bar"
+    [engineState]="vm.engineState"
+    [nodeCount]="vm.ssm.nodes.length"
+    [edgeCount]="vm.ssm.edges.length"
+    [pacerDelay]="vm.strategy.pacerDelay">
+  </app-status-bar>
+</ng-container>
