@@ -72,15 +72,33 @@ export interface IStrategy {
 
   /**
    * Delay between heartbeat pulses in milliseconds (0–2000).
-   *
-   * @remarks
-   * DESIGN DECISION: `pacerDelay` lives on the Strategy (not the Pacer service)
-   * because it's a user-tunable parameter that should be persisted and named
-   * alongside the weights. The Pacer service reads this value but doesn't own it.
-   * The delay is clamped to [0, 2000] by the Pacer's `setDelay()` method to
-   * prevent runaway timers or negative intervals.
    */
   pacerDelay: number;
+
+  /**
+   * Local strategic principles (S_L) — ordered subgoal types per entity type.
+   * [Ref: Paper 1 Sec 3.2.3 / Paper 2 Sec 3.2 Fig 7 / Gap Analysis Gap 3]
+   *
+   * For each entity type, an ordered array of relation types specifying the
+   * priority order for pursuing subgoals. Earlier entries have higher priority.
+   *
+   * Example for a medical diagnosis domain:
+   * ```
+   * {
+   *   "Condition": ["CAUSED_BY", "TREATED_BY"],
+   *   "Clinical_Finding": ["EXPLAINS", "CONFIRMED_BY"]
+   * }
+   * ```
+   *
+   * WHY: The paper's node-chain matrix (Fig 7b) prescribes that for a Disease
+   * focus node, "test before refine" means pursuing D→?F before D→?Ds. This
+   * translates to relation-type ordering per entity type. Goals matching earlier
+   * positions in the ordering receive a higher scoring bonus.
+   *
+   * If absent or empty for a given entity type, all relation types are treated
+   * equally (no ordering bonus).
+   */
+  goalOrdering?: Record<string, string[]>;
 }
 
 /**

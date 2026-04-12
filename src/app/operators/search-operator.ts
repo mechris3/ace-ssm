@@ -176,8 +176,7 @@ export function scoreGoals(
     );
 
     // [Ref: Paper 1 Sec 3.2.3 / Gap 2] Focus bonus: goals within the
-    // currently focused SSM subgraph score higher. This keeps the engine
-    // focused on one candidate solution at a time, as the paper prescribes.
+    // currently focused SSM subgraph score higher.
     const focusBonus = (focusSubgraphIds.size > 0 && focusSubgraphIds.has(goal.anchorNodeId))
       ? 25 * strategy.weights.parsimony
       : 0;
@@ -187,7 +186,29 @@ export function scoreGoals(
       );
     }
 
-    const rawScore = urgencyScore + parsimonyScore + cfBonus + focusBonus - costScore;
+    // [Ref: Paper 2 Sec 3.2 Fig 7 / Gap 3] S_L ordering bonus: goals
+    // matching earlier positions in the entity-type-specific ordering
+    // score higher. This implements "test before refine" and similar
+    // local strategic principles from the paper's node-chain matrix.
+    let orderingBonus = 0;
+    if (strategy.goalOrdering && anchor) {
+      const ordering = strategy.goalOrdering[anchor.type];
+      if (ordering && ordering.length > 0) {
+        const position = ordering.indexOf(goal.targetRelation);
+        if (position >= 0) {
+          // Earlier positions get higher bonus: first = 40, second = 30, etc.
+          orderingBonus = Math.max(0, 40 - position * 10) * strategy.weights.parsimony;
+        }
+        // Goals with relations not in the ordering get 0 bonus (lowest priority)
+      }
+    }
+    if (orderingBonus > 0) {
+      factors.push(
+        { label: 'S_L Ordering', impact: orderingBonus, explanation: `Relation "${goal.targetRelation}" is priority ${strategy.goalOrdering?.[anchor?.type ?? '']?.indexOf(goal.targetRelation) ?? '?'} for ${anchor?.type} nodes.` },
+      );
+    }
+
+    const rawScore = urgencyScore + parsimonyScore + cfBonus + focusBonus + orderingBonus - costScore;
 
     // ═════════════════════════════════════════════════════════════════
     // Anchor Status Penalties

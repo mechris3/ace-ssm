@@ -177,7 +177,9 @@ Controls HOW the engine reasons, not WHAT it reasons about.
 
 **Pacer Delay:** Time between heartbeat pulses in milliseconds (clamped to [0, 2000]).
 
-**Default Strategy:** "Balanced" — all weights at 1.0, pacer delay 1500ms.
+**Goal Ordering (S_L):** Optional map of entity types to ordered arrays of relation types, specifying the priority order for pursuing subgoals per entity type. See Section 4.10 for details.
+
+**Default Strategy:** "Balanced" — all weights at 1.0, pacer delay 1500ms, no goal ordering.
 
 **Strategy Naming:** The strategy is auto-named based on the dominant weight:
 - Highest `urgency` → "Urgency-Focused"
@@ -239,6 +241,7 @@ rawScore = (MAX(urgency) × 100 × weights.urgency)
          + (parsimony_bonus × weights.parsimony)
          + (anchor_cf × 20 × weights.parsimony)
          + (focus_bonus × weights.parsimony)
+         + (ordering_bonus × weights.parsimony)
          - (MEAN(inquiryCost) × 100 × weights.costAversion)
 ```
 
@@ -247,6 +250,7 @@ Where:
 - **Parsimony bonus:** 50 points (before weight) if the SSM already contains at least one node of the target entity type. Additionally, for reverse goals, a multi-evidence bonus of 30 points per additional CONFIRMED node that the candidate explains is added. This prioritizes Conditions that unify multiple confirmed findings (e.g., a Condition explaining both Meningism and Thunderclap_Headache scores higher than one explaining only Meningism).
 - **Certainty bonus:** `anchor.cf × 20 × weights.parsimony`. Goals anchored on high-certainty nodes score higher, ensuring the engine prefers to expand well-supported hypotheses over uncertain ones.
 - **Focus bonus:** 25 points (before weight) if the goal's anchor node is within the currently focused SSM subgraph (see Section 4.9). This keeps the engine focused on one candidate solution at a time.
+- **S_L ordering bonus:** Up to 40 points (before weight) based on the goal's relation type position in the entity-type-specific ordering defined by `strategy.goalOrdering` (see Section 4.10). First position = 40, second = 30, third = 20, fourth = 10. Goals with relations not in the ordering get 0. This implements the paper's "test before refine" and similar local strategic principles.
 - **MEAN(inquiryCost):** Average inquiry cost across matching KB fragments. Uses MEAN (not MAX) because cost is an expected-value calculation.
 
 #### 3.2.2 Scoring Formula for STATUS_UPGRADE Goals
@@ -427,6 +431,38 @@ After computing the differential, the engine evaluates global strategic principl
 **Effect on scoring:** Goals whose anchor node is within the focused subgraph receive a +25 parsimony-weighted bonus. This keeps the engine focused on one candidate solution at a time rather than jumping erratically between unrelated branches.
 
 Focus switches are logged to the console for debugging: `[ACE-SSM] Solution focus switched: "X" → "Y"`.
+
+### 4.10 Local Strategic Principles (S_L) — Goal Ordering
+
+[Ref: Paper 1 Sec 3.2.3 / Paper 2 Sec 3.2 Fig 7-8 / Gap Analysis Gap 3]
+
+Local strategic principles prescribe the order of pursuing different types of subgoals for each entity type. The paper's node-chain matrix (Fig 7b) expresses these as ordered sets:
+
+```
+{?→D→?: D→?F ≻ ?Dg→D ≻ D→?Ds ≻ ?A→D}
+```
+
+Meaning for a Disease focus node: test it (find findings) before generalizing, before refining (subtypes), before finding its agent.
+
+**Implementation:** The `goalOrdering` field on `IStrategy` maps entity types to ordered arrays of relation types. For example:
+
+```json
+{
+  "Condition": ["CAUSED_BY", "TREATED_BY"],
+  "Clinical_Finding": ["EXPLAINS", "CONFIRMED_BY"]
+}
+```
+
+**Effect on scoring:** Goals whose `targetRelation` appears in the ordering for the anchor node's entity type receive a position-based bonus:
+- Position 0 (first/highest priority): +40 × parsimony weight
+- Position 1: +30 × parsimony weight
+- Position 2: +20 × parsimony weight
+- Position 3: +10 × parsimony weight
+- Not in ordering: +0
+
+This is additive with all other scoring factors. If `goalOrdering` is absent or empty for a given entity type, all relation types are treated equally (no ordering bonus).
+
+**Domain authors** can configure S_L ordering in the domain JSON's `strategy` section. If omitted, the engine uses the default strategy with no ordering preferences.
 
 ---
 
