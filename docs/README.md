@@ -1,36 +1,34 @@
 # ACE-SSM Documentation
 
-> The Glass Box Manual — everything you need to understand, extend, and trust the ACE-SSM Core Inference Engine.
+> The Glass Box Manual — everything you need to understand, extend, and trust the ACE-SSM Inference Engine.
 
-## Suggested Reading Order
+## Core Documents
 
-Start here if you're new to the codebase. Each doc builds on the previous one.
+| Document | What it covers |
+|----------|---------------|
+| [Inference Engine Reference](./INFERENCE_ENGINE_REFERENCE.md) | **The authoritative reference.** Complete specification of the engine: Data Trinity, Triple-Operator cycle, scoring formulas, FSM, inquiry system, diagnostic differential, strategic principles (S_G/S_L), certainty factors, goal constraints, domain validation, and all 10 design invariants. Cross-referenced against both Benaroch papers with `[Ref: MD Sec X.X]` tags in the code. |
+| [Paper Gap Analysis](./PAPER_GAP_ANALYSIS.md) | Maps both Benaroch (1998) papers to our implementation. 8 gaps identified, all implemented. Tracks alignment between the academic architecture and the codebase. |
+| [Correctness Properties](./PROPERTIES.md) | 17 formal properties defining "correct" for the engine, verified with property-based tests. **Note:** needs a future update pass to add properties for CFs, diagnostic differential, S_G, S_L, goal constraints, and domain validation. |
 
-| # | Document | What you'll learn |
-|---|----------|-------------------|
-| 1 | [Project Summary](./summary.md) | The 30-second pitch — what ACE-SSM is, the tech stack, and the core vision |
-| 2 | [The Data Trinity](./data-trinity.md) | The three layers of truth (Task Structure → Knowledge Base → SSM) and how they interact |
-| 3 | [The Inference Cycle](./inference-cycle.md) | The Triple-Operator "heartbeat" — Goal Generator, Search Operator, Knowledge Operator — with worked scoring examples |
-| 4 | [Confirmation Chains](./confirmation-chains.md) | How hypotheses become facts through transitive deductive chains, with pulse-by-pulse walkthroughs |
-| 5 | [Engine FSM](./engine-fsm.md) | The 4-state finite state machine (IDLE → THINKING → INQUIRY → RESOLVED) and transition rules |
-| 6 | [Correctness Properties](./PROPERTIES.md) | The 17 formal properties that define "correct," mapped to requirements, source files, and PBT tests |
+## Source Papers
 
-## Reference Documents
-
-These were the original design inputs from before implementation:
-
-| Document | Purpose |
-|----------|---------|
-| [Architectural Deep-Dive](./ace-ssm.md) | The original mechanics document — ontological hierarchy, cognitive cycle, Glass Box philosophy |
-| [Handover Notes from Gemini](./handover-notes-from-gemini.md) | The master architectural spec — TypeScript contracts, operator pseudocode, RxJS orchestration, D3 visualization plans |
+| Paper | Reference |
+|-------|-----------|
+| [Goal-Directed Reasoning with ACE-SSM](./GoalDirectedReasoning.pdf) | Benaroch, M. (1998). *IEEE Transactions on Knowledge and Data Engineering*, Vol. 10, No. 5, pp. 706-726. The architecture paper — defines the three-step iterative cycle, goal constraints (G), strategic principles (S_G/S_L), diagnostic differential (G_g), and certainty factors. |
+| [Knowledge Modeling with SSM-DKM](./KnowledgeModelling.pdf) | Benaroch, M. (1998). *Int. J. Human-Computer Studies*, 49, 121-157. The methodology paper — defines the SSM-DKM knowledge modeling stages (conceptualization, formalization, validation, instantiation), object-relation matrices, node-chain matrices, and declarative goal constraints. |
 
 ## Quick Links
 
 | What you're looking for | Where to go |
 |------------------------|-------------|
-| "How does scoring work?" | [Inference Cycle → Search Operator](./inference-cycle.md#operator-2-search-operator-strategy) |
-| "Why does the engine ask questions?" | [Inference Cycle → INQUIRY_REQUIRED flow](./inference-cycle.md#inquiry_required-flow) |
-| "How do hypotheses get confirmed?" | [Confirmation Chains](./confirmation-chains.md) |
-| "What are the 17 properties?" | [Properties Ledger](./PROPERTIES.md#summary-table) |
-| "What state is the engine in?" | [Engine FSM](./engine-fsm.md#the-4-states) |
-| "What's Layer 1 / Layer 2 / Layer 3?" | [Data Trinity](./data-trinity.md#overview) |
+| How does scoring work? | [Inference Engine Reference §3.2.1](./INFERENCE_ENGINE_REFERENCE.md) |
+| What are the node statuses? | [Inference Engine Reference §2.3.1](./INFERENCE_ENGINE_REFERENCE.md) |
+| How does the diagnostic differential work? | [Inference Engine Reference §4.8](./INFERENCE_ENGINE_REFERENCE.md) |
+| What is the solution focus (S_G)? | [Inference Engine Reference §4.9](./INFERENCE_ENGINE_REFERENCE.md) |
+| How do goal ordering priorities work (S_L)? | [Inference Engine Reference §4.10](./INFERENCE_ENGINE_REFERENCE.md) |
+| How does the inquiry modal work? | [Inference Engine Reference §5](./INFERENCE_ENGINE_REFERENCE.md) |
+| What are the FSM states? | [Inference Engine Reference §4.1](./INFERENCE_ENGINE_REFERENCE.md) |
+| How does domain validation work? | [Inference Engine Reference §4.11](./INFERENCE_ENGINE_REFERENCE.md) |
+| How do declarative goal constraints work? | [Inference Engine Reference §4.12](./INFERENCE_ENGINE_REFERENCE.md) |
+| What are the 17 correctness properties? | [Properties Ledger](./PROPERTIES.md) |
+| How does our implementation map to the papers? | [Paper Gap Analysis](./PAPER_GAP_ANALYSIS.md) |
