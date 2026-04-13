@@ -273,6 +273,8 @@ The fixed 200-point base (vs. 50 for EXPAND parsimony) ensures promotion is stro
 
 All penalties are applied after the raw score is computed. REFUTED and UNKNOWN use multiplicative penalties that cannot be overcome by high urgency. SKIPPED uses a subtractive penalty that only removes the urgency component, allowing the goal to still compete on parsimony.
 
+**Refutation Propagation ("Tainted Evidence"):** When a node is REFUTED, the penalty propagates backward through the SSM graph to weaken goals anchored on nodes that depend on the refuted evidence. The propagation uses BFS from all REFUTED nodes, walking edges in reverse (target → source). Each hop multiplies the taint by 0.8, so direct parents receive an 80% penalty, grandparents 64%, great-grandparents 51%, etc. Propagation stops below 5%. This ensures that refuting a Question (test) weakens the Finding it confirms, which weakens the Disease that causes it, which weakens goals exploring that Disease's subtypes. The tainted penalties map is computed once per pulse before the scoring loop.
+
 #### 3.2.4 Tie-Breaking
 
 Goals are sorted by `totalScore` descending. Ties are broken by array order, which means EXPAND goals (generated first) are preferred over STATUS_UPGRADE goals at equal scores.

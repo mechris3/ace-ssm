@@ -58,6 +58,52 @@ export function scoreGoals(
     }
   }
 
+  // ═══════════════════════════════════════════════════════════════════
+  // Pre-compute "tainted" nodes — nodes whose evidence chain includes
+  // a REFUTED node. Uses BFS backward from all REFUTED nodes through
+  // edges (target → source). Each hop multiplies the taint by 0.8,
+  // so direct parents get 80% penalty, grandparents 64%, etc.
+  //
+  // This is computed once before the scoring loop so every goal can
+  // check its anchor against the tainted set in O(1).
+  // ═══════════════════════════════════════════════════════════════════
+  const taintedPenalties = new Map<string, number>();
+  const refutedNodes = ssm.nodes.filter(n => n.status === 'REFUTED');
+
+  if (refutedNodes.length > 0) {
+    // Build reverse adjacency: for each edge target → source
+    const reverseAdj = new Map<string, Set<string>>();
+    for (const e of ssm.edges) {
+      const tgt = typeof e.target === 'string' ? e.target : (e.target as any).id;
+      const src = typeof e.source === 'string' ? e.source : (e.source as any).id;
+      if (!reverseAdj.has(tgt)) reverseAdj.set(tgt, new Set());
+      reverseAdj.get(tgt)!.add(src);
+    }
+
+    // BFS from each REFUTED node, propagating taint backward
+    const taintQueue: [string, number][] = refutedNodes.map(n => [n.id, 0.80]);
+    for (const n of refutedNodes) taintedPenalties.set(n.id, 0.99); // Direct refutation handled by status check
+
+    while (taintQueue.length > 0) {
+      const [nodeId, penalty] = taintQueue.shift()!;
+      const parents = reverseAdj.get(nodeId);
+      if (!parents) continue;
+
+      for (const parentId of parents) {
+        const existing = taintedPenalties.get(parentId) ?? 0;
+        // Take the maximum taint (worst case from any refuted descendant)
+        if (penalty > existing) {
+          taintedPenalties.set(parentId, penalty);
+          // Propagate further with diminishing penalty (0.8× per hop)
+          const nextPenalty = penalty * 0.8;
+          if (nextPenalty > 0.05) { // Stop propagating below 5%
+            taintQueue.push([parentId, nextPenalty]);
+          }
+        }
+      }
+    }
+  }
+
   const scored = goals.map(goal => {
     const anchor = ssm.nodes.find(n => n.id === goal.anchorNodeId);
     const factors: IRationaleFactor[] = [];
@@ -232,6 +278,34 @@ export function scoreGoals(
         label: 'Skipped Anchor',
         impact: -urgencyScore,
         explanation: `Anchor "${anchor.label}" was skipped — urgency bonus removed for this cycle.`,
+      });
+    }
+
+    // ═════════════════════════════════════════════════════════════════
+    // Refutation Propagation — "Tainted Evidence" Penalty
+    //
+    // When a node is REFUTED, the penalty should propagate through the
+    // graph to weaken goals anchored on nodes that depend on the refuted
+    // evidence. The propagation uses a pre-computed "tainted" set:
+    //
+    //   1. Start from all REFUTED nodes in the SSM
+    //   2. Walk backward through edges (target → source) to find nodes
+    //      whose evidence chain includes a refuted node
+    //   3. Each hop reduces the penalty: direct parent = 80%, grandparent
+    //      = 64% (0.8²), etc. This models diminishing impact with distance.
+    //
+    // This ensures that refuting a Question (test) weakens the Finding
+    // it confirms, which weakens the Disease that causes it, which
+    // weakens goals exploring that Disease's subtypes.
+    // ═════════════════════════════════════════════════════════════════
+    if (anchor && anchor.status !== 'REFUTED' && taintedPenalties.has(anchor.id)) {
+      const taintFactor = taintedPenalties.get(anchor.id)!;
+      const penalty = totalScore * taintFactor;
+      totalScore = totalScore * (1 - taintFactor);
+      factors.push({
+        label: 'Tainted Evidence',
+        impact: -penalty,
+        explanation: `Anchor "${anchor.label}" depends on refuted evidence — ${Math.round(taintFactor * 100)}% penalty propagated.`,
       });
     }
 
