@@ -200,6 +200,7 @@ Every SSM mutation produces exactly one ReasoningStep appended to the history.
 | `factors` | (Optional) Breakdown of every factor that contributed to the score |
 | `strategyName` | Name of the active strategy |
 | `actionTaken` | Human-readable description of what the engine did |
+| `differentialSnapshot` | (Optional) Snapshot of the diagnostic differential at this step — array of `{label, coverage, total, cf, isComplete}` showing competing candidates |
 
 ---
 
@@ -296,18 +297,13 @@ Bypasses the KB entirely. Returns `STATUS_UPGRADE_PATCH` with the node ID to pro
 
 #### 3.3.2 EXPAND Goals — KB Matching
 
-Filters KB fragments by anchor identity using a cascading search with two priority levels:
+Filters KB fragments by anchor identity using exact relation matching:
 
-**Priority 1 — Exact Relation Match:**
+**Exact Relation Match:**
 - **Forward:** `(fragment.subject matches anchor) && fragment.relation === goal.targetRelation`
 - **Reverse:** `(fragment.object matches anchor) && fragment.relation === goal.targetRelation`
 
-**Priority 2 — Broad Fallback (any relation):**
-If Priority 1 returns zero matches, the operator falls back to matching any fragment where the anchor appears on the correct side, regardless of relation type:
-- **Forward:** `fragment.subject matches anchor` (any relation)
-- **Reverse:** `fragment.object matches anchor` (any relation)
-
-This prevents the engine from stalling when the KB uses a different but logically equivalent relation name (e.g., `CONFIRMED_BY` instead of `EXPLAINS`) for the same structural relationship.
+A broad fallback (matching any relation for the anchor) was previously implemented but has been removed. With rich ontologies that have multiple relation types per entity, the fallback caused duplicate edges and repeated inquiry questions. Exact-match-only is consistent with the paper's one-to-one mapping between G-operators and K-operators — each K-operator searches a specific relational network, not all networks.
 
 Anchor matching uses dual keys: both the goal's `anchorLabel` and `anchorNodeId` are checked against the fragment's subject/object fields.
 
@@ -390,11 +386,9 @@ When the Knowledge Operator returns NO_MATCH, the engine creates a placeholder e
 
 This prevents the Goal Generator from detecting the same gap again on subsequent pulses.
 
-### 4.5 Goal Relation Coverage (Exhaustion)
+### 4.5 Goal Relation Coverage (Removed)
 
-When the Knowledge Operator's cascading fallback resolves a goal using a different relation type than the goal requested (e.g., goal asked for `EXPLAINS` but the broad fallback matched `CONFIRMED_BY`), the resulting PATCH edges may not cover the original goal relation. Without intervention, the Goal Generator would see the original relation as still unexplored and regenerate the same goal — causing an infinite loop.
-
-To prevent this, after every PATCH dispatch, the engine checks whether any of the result edges match the goal's `targetRelation`. If not, it inserts an additional placeholder edge for the original relation, marking that specific goal as exhausted.
+This section previously described a mechanism for inserting placeholder edges when the broad KB fallback resolved a goal using a different relation type than requested. Since the broad fallback has been removed (Section 3.3.2), every PATCH edge now has the correct `relationType` matching the goal's `targetRelation`, making this mechanism unnecessary. The orchestrator no longer performs goal relation coverage checks.
 
 ### 4.6 Graph Merging
 

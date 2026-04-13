@@ -22,9 +22,11 @@ import { KnowledgeOperatorResult } from '../models/engine.model';
  * Resolves a goal against the Knowledge Base.
  * [Ref: MD Sec 3.3.2 - EXPAND Goals — KB Matching]
  *
- * Uses a cascading KB match:
- *   Priority 1: Exact relation match (anchor + targetRelation)
- *   Priority 2: Broad fallback (anchor on correct side, any relation)
+ * Uses exact-match KB matching:
+ *   Exact relation match (anchor + targetRelation)
+ *
+ * The broad fallback (matching any relation for the anchor) was removed
+ * to prevent duplicate edges and repeated inquiries with rich ontologies.
  *
  * For each match, checks if the target already exists in the SSM:
  *   - Existing target → edge to existing node (Graph Merging, Sec 4.6)
