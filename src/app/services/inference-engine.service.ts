@@ -297,15 +297,21 @@ export class InferenceEngineService {
     // hypothesis that requires clinical observation. This is what
     // makes the system interactive rather than fully automated.
     // [Ref: MD Sec 10 Invariant 10 - Finding confirmation is user-driven]
+    //
+    // Skip for STATUS_UPGRADE and NO_MATCH results — STATUS_UPGRADE
+    // just promoted a node to CONFIRMED (no new hypothesis to confirm),
+    // and NO_MATCH produced only a placeholder edge.
     // ═══════════════════════════════════════════════════════════════
+    if (result.type !== 'PATCH') {
+      return; // No finding confirmation needed for non-PATCH results
+    }
+
     const confirmableNodes: ISSMNode[] = [];
 
-    // Check newly spawned nodes from a PATCH result
-    if (result.type === 'PATCH') {
-      confirmableNodes.push(
-        ...result.nodes.filter(n => n.status === 'HYPOTHESIS' && n.canBeConfirmed === true)
-      );
-    }
+    // Check newly spawned nodes from the PATCH result
+    confirmableNodes.push(
+      ...result.nodes.filter(n => n.status === 'HYPOTHESIS' && n.canBeConfirmed === true)
+    );
 
     // Check the anchor node (from the SSM snapshot taken at pulse start)
     const anchorNode = ssm.nodes.find(n => n.id === selectedGoal.anchorNodeId);

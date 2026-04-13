@@ -429,7 +429,7 @@ After computing the differential, the engine evaluates global strategic principl
 **S_G evaluation rules (simplified from the paper's s1-s6):**
 1. If no current focus exists, pick the strongest candidate (highest coverage + CF)
 2. If the current focus is no longer in the differential, switch to the strongest
-3. If another candidate has become stronger than the current focus, switch to it
+3. If another candidate has become *significantly* stronger than the current focus (exceeds by more than 0.5 strength units), switch to it. This hysteresis threshold prevents thrashing on marginal differences — the paper states that S_G principles "take effect only occasionally, when certain changes to the SSM require to divert attention."
 4. Otherwise, stay on the current focus
 
 **Effect on scoring:** Goals whose anchor node is within the focused subgraph receive a +25 parsimony-weighted bonus. This keeps the engine focused on one candidate solution at a time rather than jumping erratically between unrelated branches.

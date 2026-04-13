@@ -63,18 +63,24 @@ export const selectWaitingForUser = createSelector(
  * Selects the most recent 50 reasoning steps from the history.
  * Used as the store-side limit for the Audit Trail scroll-back buffer.
  */
+/**
+ * Selects the full reasoning history — no truncation.
+ * The audit trail is the core of the "Glass Box" transparency;
+ * limiting it would hide the engine's reasoning from the user.
+ */
 export const selectRecentHistory = createSelector(
   selectHistory,
-  (history) => history.slice(-50)
+  (history) => history
 );
 
 /**
- * Selects the most recent 20 reasoning steps from the history.
- * Used as the DOM render limit for the Audit Trail component.
+ * Selects the full reasoning history for DOM rendering.
+ * Previously capped at 20 entries, now uncapped — the audit trail
+ * component handles its own scroll virtualization.
  */
 export const selectRenderedHistory = createSelector(
   selectHistory,
-  (history) => history.slice(-20)
+  (history) => history
 );
 
 /**

@@ -702,20 +702,6 @@
       "canBeConfirmed": true
     },
     {
-      "id": "kb_047",
-      "subject": "Fever",
-      "subjectType": "Finding",
-      "relation": "CONFIRMED_BY",
-      "object": "Temperature_Check",
-      "objectType": "Question",
-      "metadata": {
-        "urgency": 0.7,
-        "specificity": 0.9,
-        "inquiryCost": 0.1
-      },
-      "canBeConfirmed": true
-    },
-    {
       "id": "kb_048",
       "subject": "Coccidiomycosis",
       "subjectType": "Etiologic_Agent",
@@ -834,7 +820,11 @@
       "relation": "CAUSES",
       "object": "Increased_Pressure_In_Brain",
       "objectType": "Disease",
-      "metadata": { "urgency": 0.8, "specificity": 0.7, "inquiryCost": 0.3 },
+      "metadata": {
+        "urgency": 0.8,
+        "specificity": 0.7,
+        "inquiryCost": 0.3
+      },
       "canBeConfirmed": false
     }
   ],
