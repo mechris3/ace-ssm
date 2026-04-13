@@ -160,6 +160,7 @@ const searchOperatorInputArb = fc.integer({ min: 1, max: 5 }).chain(nodeCount =>
                 history: [],
                 isRunning: false,
                 waitingForUser: false,
+                pendingFindingNodeId: null,
               };
               const kb = [...matchingFrags, ...randomFrags];
               return { ssm, goals: goals as IGoal[], kb, strategy, unknownPenalty };
@@ -182,9 +183,11 @@ function computeExpectedScore(
   const anchor = ssm.nodes.find(n => n.id === goal.anchorNodeId);
 
   const isReverse = goal.direction === 'reverse';
+  // [Ref: MD Sec 10 Invariant 3] Dual-key KB matching
+  const anchorKeys = new Set([goal.anchorLabel, goal.anchorNodeId]);
   const matchingFragments = isReverse
-    ? kb.filter(f => f.object === goal.anchorLabel && f.relation === goal.targetRelation)
-    : kb.filter(f => f.subject === goal.anchorLabel && f.relation === goal.targetRelation);
+    ? kb.filter(f => anchorKeys.has(f.object) && f.relation === goal.targetRelation)
+    : kb.filter(f => anchorKeys.has(f.subject) && f.relation === goal.targetRelation);
 
   const maxUrgency = matchingFragments.length > 0
     ? Math.max(...matchingFragments.map(f => f.metadata.urgency))
@@ -194,15 +197,78 @@ function computeExpectedScore(
     : 0;
 
   const urgencyScore = maxUrgency * 100 * strategy.weights.urgency;
-  const parsimonyScore = ssm.nodes.some(n => n.type === goal.targetType)
+
+  // [Ref: MD Sec 3.2.1] Parsimony bonus + multi-evidence bonus for reverse goals
+  let parsimonyScore = ssm.nodes.some(n => n.type === goal.targetType)
     ? 50 * strategy.weights.parsimony
     : 0;
+  if (isReverse && matchingFragments.length > 0) {
+    const confirmedLabels = new Set(
+      ssm.nodes.filter(n => n.status === 'CONFIRMED').flatMap(n => [n.label, n.id])
+    );
+    for (const frag of matchingFragments) {
+      const confirmedLinks = kb.filter(f =>
+        f.subject === frag.subject && confirmedLabels.has(f.object)
+      ).length;
+      if (confirmedLinks > 1) {
+        parsimonyScore += (confirmedLinks - 1) * 30 * strategy.weights.parsimony;
+      }
+    }
+  }
+
   const costScore = meanCost * 100 * strategy.weights.costAversion;
 
-  const rawScore = urgencyScore + parsimonyScore - costScore;
-  const totalScore = anchor?.status === 'UNKNOWN'
-    ? rawScore * unknownPenalty
-    : rawScore;
+  // [Ref: MD Sec 3.2.1] CF bonus
+  const cfBonus = (anchor?.cf ?? 0.5) * 20 * strategy.weights.parsimony;
+
+  // No focus bonus or S_L ordering bonus in the test helper (no solutionFocusNodeId or goalOrdering passed)
+  const rawScore = urgencyScore + parsimonyScore + cfBonus - costScore;
+
+  // [Ref: MD Sec 3.2.3] Anchor status penalties
+  let totalScore = rawScore;
+  if (anchor?.status === 'REFUTED') {
+    totalScore = rawScore * 0.01;
+  } else if (anchor?.status === 'UNKNOWN') {
+    totalScore = rawScore * unknownPenalty;
+  } else if (anchor?.status === 'SKIPPED') {
+    totalScore = rawScore - urgencyScore;
+  }
+
+  // [Ref: MD Sec 3.2.3] KB-based taint propagation penalty
+  // Build KB adjacency and BFS from refuted labels, same as the real scorer
+  const refutedNodes = ssm.nodes.filter(n => n.status === 'REFUTED');
+  if (refutedNodes.length > 0 && anchor && anchor.status !== 'REFUTED') {
+    const kbAdj = new Map<string, Set<string>>();
+    for (const f of kb) {
+      if (!kbAdj.has(f.subject)) kbAdj.set(f.subject, new Set());
+      if (!kbAdj.has(f.object)) kbAdj.set(f.object, new Set());
+      kbAdj.get(f.subject)!.add(f.object);
+      kbAdj.get(f.object)!.add(f.subject);
+    }
+    const taintedLabels = new Map<string, number>();
+    const taintQueue: [string, number][] = [];
+    for (const n of refutedNodes) {
+      taintedLabels.set(n.label, 0.99);
+      taintQueue.push([n.label, 0.80]);
+    }
+    while (taintQueue.length > 0) {
+      const [label, penalty] = taintQueue.shift()!;
+      const neighbors = kbAdj.get(label);
+      if (!neighbors) continue;
+      for (const neighborLabel of neighbors) {
+        const existing = taintedLabels.get(neighborLabel) ?? 0;
+        if (penalty > existing) {
+          taintedLabels.set(neighborLabel, penalty);
+          const nextPenalty = penalty * 0.8;
+          if (nextPenalty > 0.05) taintQueue.push([neighborLabel, nextPenalty]);
+        }
+      }
+    }
+    const anchorTaint = taintedLabels.get(anchor.label);
+    if (anchorTaint !== undefined) {
+      totalScore = totalScore * (1 - anchorTaint);
+    }
+  }
 
   return { rawScore, totalScore };
 }
@@ -292,7 +358,7 @@ describe('Property 10: Rationale Factor Sum Invariant', () => {
         const result = scoreGoals(goals, ssm, kb, strategy, unknownPenalty);
 
         // Sum of factor impacts
-        const factorSum = result.rationale.factors.reduce(
+        const factorSum = result.rationale.factors!.reduce(
           (sum, f) => sum + f.impact, 0
         );
 
@@ -312,7 +378,7 @@ describe('Property 10: Rationale Factor Sum Invariant', () => {
       fc.property(searchOperatorInputArb, ({ ssm, goals, kb, strategy, unknownPenalty }) => {
         const result = scoreGoals(goals, ssm, kb, strategy, unknownPenalty);
 
-        expect(result.rationale.factors.length).toBeGreaterThan(0);
+        expect(result.rationale.factors!.length).toBeGreaterThan(0);
       }),
       { numRuns: 100 }
     );

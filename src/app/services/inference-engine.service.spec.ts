@@ -30,7 +30,7 @@ describe('InferenceEngineService', () => {
   };
   const testSSM: ISSMState = {
     nodes: [testNode], edges: [], history: [],
-    isRunning: true, waitingForUser: false,
+    isRunning: true, waitingForUser: false, pendingFindingNodeId: null,
   };
   const testTaskStructure = {
     entityTypes: ['FINDING', 'ETIOLOGIC_AGENT'],
@@ -270,7 +270,7 @@ describe('InferenceEngineService — Integration: Multi-Pulse Scenario', () => {
 
   const baseSSM: ISSMState = {
     nodes: [feverNode], edges: [], history: [],
-    isRunning: true, waitingForUser: false,
+    isRunning: true, waitingForUser: false, pendingFindingNodeId: null,
   };
 
   const integrationState = {
@@ -416,7 +416,7 @@ describe('InferenceEngineService — Integration: Inquiry and UNKNOWN Flows', ()
 
   const inquirySSM: ISSMState = {
     nodes: [treatmentNode], edges: [], history: [],
-    isRunning: true, waitingForUser: false,
+    isRunning: true, waitingForUser: false, pendingFindingNodeId: null,
   };
 
   const inquiryState = {
@@ -575,7 +575,7 @@ describe('InferenceEngineService — Integration: Inquiry and UNKNOWN Flows', ()
       nodes: [treatmentNode, unknownNode],
       edges: [questionEdge],
       history: [inquiryAction.reasoningStep, resolveStep],
-      isRunning: true, waitingForUser: false,
+      isRunning: true, waitingForUser: false, pendingFindingNodeId: null,
     };
 
     store.setState({
@@ -645,7 +645,7 @@ describe('InferenceEngineService — Integration: Confirmation Chain', () => {
     nodes: [feverNode, bmNode, lpNode],
     edges: [causesEdge, confirmedByEdge],
     history: [],
-    isRunning: true, waitingForUser: false,
+    isRunning: true, waitingForUser: false, pendingFindingNodeId: null,
   };
 
   const confirmState = {

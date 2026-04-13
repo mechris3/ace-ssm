@@ -274,7 +274,14 @@ The fixed 200-point base (vs. 50 for EXPAND parsimony) ensures promotion is stro
 
 All penalties are applied after the raw score is computed. REFUTED and UNKNOWN use multiplicative penalties that cannot be overcome by high urgency. SKIPPED uses a subtractive penalty that only removes the urgency component, allowing the goal to still compete on parsimony.
 
-**Refutation Propagation ("Tainted Evidence"):** When a node is REFUTED, the penalty propagates bidirectionally through the SSM graph to weaken goals anchored on nodes connected to the refuted evidence. The propagation uses BFS from all REFUTED nodes, walking edges in both directions (the graph is treated as undirected for taint purposes). Each hop multiplies the taint by 0.8, so direct neighbors receive an 80% penalty, two-hop neighbors 64%, three-hop 51%, etc. Propagation stops below 5%. This ensures that refuting a Question (test) weakens the Finding it confirms, which weakens the Disease that causes it, regardless of edge direction. The tainted penalties map is computed once per pulse before the scoring loop.
+**Refutation Propagation ("Tainted Evidence"):** When a node is REFUTED, the penalty propagates through the **Knowledge Base** (not the SSM graph) to weaken goals anchored on nodes connected to the refuted evidence. This KB-based approach solves a timing problem: the SSM is built incrementally (one node-chain per pulse), so edges connecting a refuted node to distant nodes may not yet exist at scoring time. The KB is complete and immutable, so walking KB relationships finds ALL connected concepts regardless of which SSM edges have been constructed so far. [Ref: Paper 1 Sec 3.2.2 / Sec 4.1 — "links exist between G and K through common reference to the ontological identity of objects"]
+
+The propagation algorithm:
+1. Collect labels of all REFUTED SSM nodes
+2. BFS through KB fragments bidirectionally (subject↔object, any relation type), decaying taint by 0.8 per hop. Direct KB neighbors receive an 80% penalty, two-hop neighbors 64%, three-hop 51%, etc. Propagation stops below 5%.
+3. Map tainted labels back to SSM node IDs — a node is tainted if its label appears in the tainted set
+
+This ensures that refuting a Question (test) weakens the Finding it confirms, which weakens the Disease that causes it, regardless of whether those SSM edges have been built yet. The tainted penalties map is computed once per pulse before the scoring loop.
 
 #### 3.2.4 Tie-Breaking
 

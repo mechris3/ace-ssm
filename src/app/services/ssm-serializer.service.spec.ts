@@ -60,6 +60,7 @@ const ssmStateArb: fc.Arbitrary<ISSMState> = fc.record({
   history: fc.array(reasoningStepArb, { minLength: 0, maxLength: 10 }),
   isRunning: fc.boolean(),
   waitingForUser: fc.boolean(),
+  pendingFindingNodeId: fc.constant(null as string | null),
 });
 
 // ─── Property 1: SSM Serialization Round-Trip ────────────────────────────────

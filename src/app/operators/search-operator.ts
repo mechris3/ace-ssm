@@ -60,9 +60,23 @@ export function scoreGoals(
 
   // ═══════════════════════════════════════════════════════════════════
   // Pre-compute "tainted" nodes — nodes whose evidence chain includes
-  // a REFUTED node. Uses BFS backward from all REFUTED nodes through
-  // edges (target → source). Each hop multiplies the taint by 0.8,
-  // so direct parents get 80% penalty, grandparents 64%, etc.
+  // a REFUTED node. Uses KB-based label BFS rather than SSM-edge BFS.
+  // [Ref: Paper 1 Sec 3.2.2 / Paper 1 Sec 4.1 — K links G through
+  // common reference to the ontological identity of objects]
+  //
+  // WHY KB-based instead of SSM-edge-based: The SSM is built
+  // incrementally — one node-chain per pulse. At scoring time, edges
+  // connecting a refuted node to distant nodes (e.g., Meningitis)
+  // may not yet exist because those edges haven't been built yet.
+  // The KB is complete and immutable, so walking KB relationships
+  // (subject/object label matching) finds ALL connected concepts
+  // regardless of which SSM edges have been constructed so far.
+  //
+  // Algorithm:
+  //   1. Collect labels of all REFUTED SSM nodes
+  //   2. BFS through KB fragments bidirectionally (subject↔object),
+  //      decaying taint by 0.8 per hop, stopping below 5%
+  //   3. Map tainted labels back to SSM node IDs
   //
   // This is computed once before the scoring loop so every goal can
   // check its anchor against the tainted set in O(1).
@@ -71,38 +85,51 @@ export function scoreGoals(
   const refutedNodes = ssm.nodes.filter(n => n.status === 'REFUTED');
 
   if (refutedNodes.length > 0) {
-    // Build bidirectional adjacency: for each edge, both endpoints can reach each other.
-    // Refutation taint propagates through the graph regardless of edge direction —
-    // if a Question is refuted, the Finding that CONFIRMED_BY it is tainted,
-    // and the Disease that CAUSES that Finding is also tainted.
-    const adjacency = new Map<string, Set<string>>();
-    for (const e of ssm.edges) {
-      const tgt = typeof e.target === 'string' ? e.target : (e.target as any).id;
-      const src = typeof e.source === 'string' ? e.source : (e.source as any).id;
-      if (!adjacency.has(tgt)) adjacency.set(tgt, new Set());
-      if (!adjacency.has(src)) adjacency.set(src, new Set());
-      adjacency.get(tgt)!.add(src);
-      adjacency.get(src)!.add(tgt);
+    // Build bidirectional label adjacency from KB fragments.
+    // Every fragment connects its subject label to its object label,
+    // regardless of relation type — taint propagates through any
+    // ontological relationship (CAUSES, SUBTYPE_OF, CONFIRMED_BY, etc.).
+    const kbAdjacency = new Map<string, Set<string>>();
+    for (const f of kb) {
+      if (!kbAdjacency.has(f.subject)) kbAdjacency.set(f.subject, new Set());
+      if (!kbAdjacency.has(f.object)) kbAdjacency.set(f.object, new Set());
+      kbAdjacency.get(f.subject)!.add(f.object);
+      kbAdjacency.get(f.object)!.add(f.subject);
     }
 
-    // BFS from each REFUTED node, propagating taint bidirectionally
-    const taintQueue: [string, number][] = refutedNodes.map(n => [n.id, 0.80]);
-    for (const n of refutedNodes) taintedPenalties.set(n.id, 0.99);
+    // BFS from each REFUTED node's label through KB adjacency.
+    // Produces a map of label → taint penalty.
+    const taintedLabels = new Map<string, number>();
+    const taintQueue: [string, number][] = [];
+
+    for (const n of refutedNodes) {
+      taintedLabels.set(n.label, 0.99);
+      taintQueue.push([n.label, 0.80]);
+    }
 
     while (taintQueue.length > 0) {
-      const [nodeId, penalty] = taintQueue.shift()!;
-      const neighbors = adjacency.get(nodeId);
+      const [label, penalty] = taintQueue.shift()!;
+      const neighbors = kbAdjacency.get(label);
       if (!neighbors) continue;
 
-      for (const neighborId of neighbors) {
-        const existing = taintedPenalties.get(neighborId) ?? 0;
+      for (const neighborLabel of neighbors) {
+        const existing = taintedLabels.get(neighborLabel) ?? 0;
         if (penalty > existing) {
-          taintedPenalties.set(neighborId, penalty);
+          taintedLabels.set(neighborLabel, penalty);
           const nextPenalty = penalty * 0.8;
           if (nextPenalty > 0.05) {
-            taintQueue.push([neighborId, nextPenalty]);
+            taintQueue.push([neighborLabel, nextPenalty]);
           }
         }
+      }
+    }
+
+    // Map tainted labels back to SSM node IDs.
+    // A node is tainted if its label appears in the tainted set.
+    for (const node of ssm.nodes) {
+      const labelTaint = taintedLabels.get(node.label);
+      if (labelTaint !== undefined) {
+        taintedPenalties.set(node.id, labelTaint);
       }
     }
   }

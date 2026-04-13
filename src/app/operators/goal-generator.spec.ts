@@ -70,6 +70,7 @@ const ssmAndTaskStructureArb: fc.Arbitrary<{ ssm: ISSMState; taskStructure: ITas
             history: [],
             isRunning: false,
             waitingForUser: false,
+            pendingFindingNodeId: null,
           } as ISSMState,
           taskStructure: { entityTypes, relations } as ITaskStructure,
         }));
