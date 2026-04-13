@@ -18,7 +18,8 @@ import { IKnowledgeFragment } from '../../models/knowledge-base.model';
 import { selectRecentHistory, selectRenderedHistory, selectPendingFindingNode } from '../../store/ssm/ssm.selectors';
 import { selectRelations } from '../../store/task-structure/task-structure.selectors';
 import { selectAllFragments } from '../../store/knowledge-base/knowledge-base.selectors';
-import { first } from 'rxjs/operators';
+import { first, map } from 'rxjs/operators';
+import { buildEntityColorMap } from '../../operators/entity-color';
 
 export type ViewMode = 'ssm' | 'taskStructure' | 'knowledgeBase';
 
@@ -49,7 +50,21 @@ export class DashboardComponent {
   pendingFindingNode$: Observable<ISSMNode | null> = this.store.select(selectPendingFindingNode);
   relations$: Observable<IRelation[]> = this.store.select(selectRelations);
   fragments$: Observable<IKnowledgeFragment[]> = this.store.select(selectAllFragments);
+
+  /**
+   * Entity-type color map derived from Task Structure topology.
+   * Recomputes whenever the view model changes (i.e., when a new domain is loaded).
+   * Passed to all three graph views so SSM nodes, Task Structure nodes,
+   * and KB nodes are consistently color-coded by their entity type role.
+   */
+  typeColorMap$: Observable<Map<string, [string, string]>> = this.vm$.pipe(
+    map(vm => buildEntityColorMap(vm.entityTypes, vm.relations))
+  );
+
   resetOnLoad = true;
+
+  /** Empty color map used as fallback before the Task Structure is loaded. */
+  readonly emptyColorMap = new Map<string, [string, string]>();
 
   /** Current view mode for the graph workspace. */
   readonly viewMode = signal<ViewMode>('ssm');

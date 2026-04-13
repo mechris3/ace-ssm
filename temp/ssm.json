@@ -17,6 +17,11 @@
         "to": "Finding"
       },
       {
+        "type": "CAUSES",
+        "from": "Disease",
+        "to": "Disease"
+      },
+      {
         "type": "SUBTYPE_OF",
         "from": "Disease",
         "to": "Disease"
@@ -821,6 +826,16 @@
         "inquiryCost": 0.1
       },
       "canBeConfirmed": true
+    },
+    {
+      "id": "kb_056",
+      "subject": "Brain_Mass_Lesion",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Increased_Pressure_In_Brain",
+      "objectType": "Disease",
+      "metadata": { "urgency": 0.8, "specificity": 0.7, "inquiryCost": 0.3 },
+      "canBeConfirmed": false
     }
   ],
   "ssm": {

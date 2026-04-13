@@ -53,6 +53,7 @@
         [activeGoal]="vm.activeGoal"
         [selectedNodeId]="vm.selectedNodeId"
         [highlightNodeId]="highlightNodeId"
+        [typeColorMap]="(typeColorMap$ | async) ?? emptyColorMap"
         (onNodeClick)="handleNodeClick($event)">
       </app-ssm-graph>
     </div>
@@ -66,6 +67,7 @@
           [activeGoal]="null"
           [selectedNodeId]="null"
           [highlightNodeId]="getHighlightType(vm) ? 'ts_' + getHighlightType(vm) : null"
+          [typeColorMap]="(typeColorMap$ | async) ?? emptyColorMap"
           (onNodeClick)="handleNodeClick($event)">
         </app-ssm-graph>
       </ng-container>
@@ -80,6 +82,7 @@
           [activeGoal]="null"
           [selectedNodeId]="null"
           [highlightNodeId]="vm.activeGoal ? 'kb_' + vm.activeGoal.anchorLabel : null"
+          [typeColorMap]="(typeColorMap$ | async) ?? emptyColorMap"
           (onNodeClick)="handleNodeClick($event)">
         </app-ssm-graph>
       </ng-container>

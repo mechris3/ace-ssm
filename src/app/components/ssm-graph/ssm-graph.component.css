@@ -32,28 +32,39 @@
   user-select: none;
 }
 
+/* ── Node status indicators ────────────────────────────────────────── */
+/* Fill color is set by entity-type topology (via typeColorMap input).   */
+/* Status is indicated by stroke style and opacity modifiers.           */
+
 .node-group.status-CONFIRMED circle {
-  fill: var(--color-confirmed);
+  stroke-width: 2.5;
+  filter: brightness(1.1);
 }
 
 .node-group.status-HYPOTHESIS circle {
-  fill: var(--color-hypothesis);
+  opacity: 0.7;
+  stroke-dasharray: none;
 }
 
 .node-group.status-QUESTION circle {
-  fill: var(--color-question);
+  opacity: 0.6;
+  stroke-dasharray: 4 2;
 }
 
 .node-group.status-UNKNOWN circle {
-  fill: var(--color-unknown);
+  opacity: 0.4;
+  stroke-dasharray: 4 2;
 }
 
 .node-group.status-REFUTED circle {
-  fill: #ef4444;
+  opacity: 0.3;
+  stroke: #ef4444 !important;
+  stroke-width: 2.5;
+  stroke-dasharray: 2 2;
 }
 
 .node-group.status-SKIPPED circle {
-  fill: #94a3b8;
+  opacity: 0.5;
   stroke-dasharray: 4 2;
 }
 

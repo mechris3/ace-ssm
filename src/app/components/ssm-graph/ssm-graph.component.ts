@@ -47,6 +47,12 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() highlightNodeId: string | null = null;
   /** [Ref: Gap 5] Node IDs that have pending/unsatisfied goals — shown with dashed outline. */
   @Input() pendingGoalNodeIds: Set<string> = new Set();
+  /**
+   * Color map from entity type → [fillColor, strokeColor].
+   * Computed by buildEntityColorMap() from the Task Structure topology.
+   * Applied as a colored ring around each node, independent of status color.
+   */
+  @Input() typeColorMap: Map<string, [string, string]> = new Map();
 
   @Output() onNodeClick = new EventEmitter<string>();
 
@@ -236,6 +242,20 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
     // Update label text
     nodeMerge.select('text').text((d: SimNode) => d.label);
 
+    // Apply entity-type color to node circles.
+    // The fill color comes from the topological role (root=orange, bridge=green,
+    // leaf=indigo, etc.). The stroke color encodes the node's lifecycle status
+    // (CONFIRMED, HYPOTHESIS, REFUTED, etc.) via CSS classes.
+    nodeMerge.select('circle')
+      .attr('fill', (d: SimNode) => {
+        const colors = this.typeColorMap.get(d.type);
+        return colors ? colors[0] : 'var(--color-hypothesis)';
+      })
+      .attr('stroke', (d: SimNode) => {
+        const colors = this.typeColorMap.get(d.type);
+        return colors ? colors[1] : 'var(--border-color)';
+      });
+
     // Restart simulation with full energy so forces (especially forceCenter)
     // actually move nodes into position. alpha(1) is critical for the first
     // node — alpha(0.5) doesn't generate enough ticks to converge.
@@ -336,13 +356,38 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         const idx = pairIndex.get(d.id) ?? 0;
 
         // Self-loop: source and target are the same node.
-        // Draw a circular arc that loops out from the top of the node
-        // and returns to it, offset by index for parallel self-loops.
+        // Distribute multiple self-loops radially around the node so they
+        // don't overlap. With N self-loops, they're spaced 360/N degrees
+        // apart (e.g., 2 loops = 180° apart, 3 = 120° apart).
+        // Starting angle is -90° (top) so a single self-loop appears above.
         if (srcId === tgtId) {
-          const loopRadius = 35 + idx * 15;
-          const cx = x1, cy = y1 - loopRadius;
-          return `M${x1 - 8},${y1 - 12}`
-            + `C${cx - loopRadius},${cy - loopRadius},${cx + loopRadius},${cy - loopRadius},${x1 + 8},${y1 - 12}`;
+          const loopRadius = 35;
+          const startAngle = -Math.PI / 2; // top of node
+          const angleStep = total > 1 ? (2 * Math.PI) / total : 0;
+          const angle = startAngle + idx * angleStep;
+
+          // Direction vector from node center outward at this angle
+          const dirX = Math.cos(angle);
+          const dirY = Math.sin(angle);
+
+          // Perpendicular vector for the arc spread
+          const perpX = -dirY;
+          const perpY = dirX;
+
+          // Start and end points on the node edge (offset slightly from center)
+          const nodeR = 12; // slightly inside the visual node radius
+          const sx = x1 + perpX * nodeR;
+          const sy = y1 + perpY * nodeR;
+          const ex = x1 - perpX * nodeR;
+          const ey = y1 - perpY * nodeR;
+
+          // Control points: push outward from the node along the direction
+          const cp1x = x1 + dirX * loopRadius * 1.8 + perpX * loopRadius * 0.6;
+          const cp1y = y1 + dirY * loopRadius * 1.8 + perpY * loopRadius * 0.6;
+          const cp2x = x1 + dirX * loopRadius * 1.8 - perpX * loopRadius * 0.6;
+          const cp2y = y1 + dirY * loopRadius * 1.8 - perpY * loopRadius * 0.6;
+
+          return `M${sx},${sy}C${cp1x},${cp1y},${cp2x},${cp2y},${ex},${ey}`;
         }
 
         if (total <= 1) {
@@ -368,10 +413,17 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         const x1 = src.x ?? 0, y1 = src.y ?? 0;
         const x2 = tgt.x ?? 0, y2 = tgt.y ?? 0;
         const srcId = src.id, tgtId = tgt.id;
-        if (srcId === tgtId) return x1; // Self-loop: label centered above node
         const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
         const total = pairCount.get(key) ?? 1;
         const idx = pairIndex.get(d.id) ?? 0;
+        if (srcId === tgtId) {
+          // Self-loop label: position at the apex of the arc (outward from node)
+          const startAngle = -Math.PI / 2;
+          const angleStep = total > 1 ? (2 * Math.PI) / total : 0;
+          const angle = startAngle + idx * angleStep;
+          const labelDist = 55;
+          return x1 + Math.cos(angle) * labelDist;
+        }
         if (total <= 1) return (x1 + x2) / 2;
         const dx = x2 - x1, dy = y2 - y1;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -384,10 +436,17 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         const x1 = src.x ?? 0, y1 = src.y ?? 0;
         const x2 = tgt.x ?? 0, y2 = tgt.y ?? 0;
         const srcId = src.id, tgtId = tgt.id;
-        const idx = pairIndex.get(d.id) ?? 0;
-        if (srcId === tgtId) return y1 - (70 + idx * 30); // Self-loop: label above the arc
         const key = srcId < tgtId ? `${srcId}|${tgtId}` : `${tgtId}|${srcId}`;
         const total = pairCount.get(key) ?? 1;
+        const idx = pairIndex.get(d.id) ?? 0;
+        if (srcId === tgtId) {
+          // Self-loop label Y: position at the apex of the arc
+          const startAngle = -Math.PI / 2;
+          const angleStep = total > 1 ? (2 * Math.PI) / total : 0;
+          const angle = startAngle + idx * angleStep;
+          const labelDist = 55;
+          return y1 + Math.sin(angle) * labelDist;
+        }
         if (total <= 1) return (y1 + y2) / 2;
         const dx = x2 - x1, dy = y2 - y1;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
