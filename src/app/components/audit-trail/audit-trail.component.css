@@ -170,3 +170,37 @@
   color: var(--text-muted);
   font-size: 12px;
 }
+
+/* Differential snapshot — compact inline view of competing candidates */
+.differential-snapshot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color);
+}
+
+.snapshot-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 2px;
+}
+
+.snapshot-entry {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 1px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.snapshot-entry.winner {
+  background: rgba(52, 211, 153, 0.2);
+  color: var(--color-confirmed);
+  font-weight: 700;
+}

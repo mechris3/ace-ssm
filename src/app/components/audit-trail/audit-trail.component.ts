@@ -64,6 +64,16 @@ import { IReasoningStep } from '../../models/strategy.model';
           <div class="prose-summary">
             {{ getProseSummary(step) }}
           </div>
+          <div class="differential-snapshot" *ngIf="step.differentialSnapshot && step.differentialSnapshot.length > 0">
+            <span class="snapshot-label">Differential:</span>
+            <span
+              class="snapshot-entry"
+              *ngFor="let d of step.differentialSnapshot"
+              [class.winner]="d.isComplete"
+              [title]="d.label + ' — CF: ' + d.cf.toFixed(2)">
+              {{ d.label }} ({{ d.coverage }}/{{ d.total }})
+            </span>
+          </div>
         </div>
       </ng-container>
       <ng-template #emptyTpl>
@@ -204,6 +214,14 @@ export class AuditTrailComponent implements OnChanges, AfterViewChecked {
         for (const f of step.factors) {
           const sign = f.impact >= 0 ? '+' : '';
           lines.push(`  - ${f.label}: ${sign}${f.impact.toFixed(1)} — ${f.explanation}`);
+        }
+      }
+
+      if (step.differentialSnapshot && step.differentialSnapshot.length > 0) {
+        lines.push('- **Differential:**');
+        for (const d of step.differentialSnapshot) {
+          const badge = d.isComplete ? ' ✅ WINNER' : '';
+          lines.push(`  - ${d.label}: ${d.coverage}/${d.total} seeds, CF=${d.cf.toFixed(2)}${badge}`);
         }
       }
 

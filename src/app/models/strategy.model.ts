@@ -158,6 +158,18 @@ export interface IReasoningStep {
    * returns its result (e.g., "Expanded 'Fever' via CAUSES → Bacterial Meningitis, Influenza").
    */
   actionTaken: string;
+
+  /**
+   * Snapshot of the diagnostic differential at the time of this step.
+   * Shows the competing candidate solutions ranked by coverage + CF.
+   * Optional — only present when the differential has been computed
+   * (i.e., when root-type nodes exist in the SSM).
+   *
+   * Each entry is a compact summary: { label, coverage, total, cf, isComplete }.
+   * This enables the audit trail to show the competitive landscape at
+   * every decision point without requiring a separate UI query.
+   */
+  differentialSnapshot?: { label: string; coverage: number; total: number; cf: number; isComplete: boolean }[];
 }
 
 /**

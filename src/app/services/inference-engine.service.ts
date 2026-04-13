@@ -140,18 +140,36 @@ export class InferenceEngineService {
     const result = this.resolveGoal(selectedGoal, kb, ssm.nodes);
 
     // ═══════════════════════════════════════════════════════════════
+    // Differential Snapshot — capture the competitive landscape
+    // before dispatching, so it can be attached to the ReasoningStep.
+    // This gives the audit trail a "Differential After Step N" view
+    // showing which candidates are competing at each decision point.
+    // ═══════════════════════════════════════════════════════════════
+    let differentialSnapshot: IReasoningStep['differentialSnapshot'];
+    if (relations.length > 0) {
+      const diffEntries = computeDifferential(ssm.nodes, ssm.edges, relations);
+      if (diffEntries.length > 0) {
+        differentialSnapshot = diffEntries.map(d => ({
+          label: d.node.label,
+          coverage: d.coveredSeedCount,
+          total: d.totalSeedCount,
+          cf: d.node.cf ?? 0,
+          isComplete: d.isComplete,
+        }));
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // Step 7: Dispatch based on result type
     // [Ref: MD Sec 4.3 Step 7]
     // ═══════════════════════════════════════════════════════════════
     if (result.type === 'PATCH') {
-      // [Ref: MD Sec 3.3.2 / 3.3.3 / 4.6]
-      // actionTaken uses "Expanded" for new nodes, "Linked" for graph merges
-      // to match the terminology in the MD file.
       const reasoningStep: IReasoningStep = {
         ...rationale,
         actionTaken: result.nodes.length > 0
           ? `Expanded "${selectedGoal.anchorLabel}" via ${selectedGoal.targetRelation} → ${result.nodes.map(n => n.label).join(', ')}`
           : `Linked "${selectedGoal.anchorLabel}" to existing nodes via ${result.edges.map(e => e.relationType).join(', ')}`,
+        differentialSnapshot,
       };
 
       // With exact-match-only KB matching (broad fallback removed), every
@@ -169,6 +187,7 @@ export class InferenceEngineService {
       const reasoningStep: IReasoningStep = {
         ...rationale,
         actionTaken: `Promoted "${selectedGoal.anchorLabel}" from HYPOTHESIS to CONFIRMED`,
+        differentialSnapshot,
       };
       this.store.dispatch(SSMActions.applyStatusUpgrade({
         nodeId: result.nodeId,
@@ -189,6 +208,7 @@ export class InferenceEngineService {
       const reasoningStep: IReasoningStep = {
         ...rationale,
         actionTaken: `No KB match for "${selectedGoal.anchorLabel}" → ${selectedGoal.targetRelation}; skipped (KB is truth)`,
+        differentialSnapshot,
       };
       this.store.dispatch(SSMActions.applyPatch({
         nodes: [],
@@ -204,14 +224,15 @@ export class InferenceEngineService {
         target: selectedGoal.direction === 'reverse' ? selectedGoal.anchorNodeId : `placeholder_${crypto.randomUUID()}`,
         relationType: selectedGoal.targetRelation,
       };
-      const reasoningStep: IReasoningStep = {
+      const reasoningStep2: IReasoningStep = {
         ...rationale,
         actionTaken: `No KB match for "${selectedGoal.anchorLabel}" → ${selectedGoal.targetRelation}; skipped (KB is truth)`,
+        differentialSnapshot,
       };
       this.store.dispatch(SSMActions.applyPatch({
         nodes: [],
         edges: [placeholderEdge],
-        reasoningStep,
+        reasoningStep: reasoningStep2,
       }));
     }
 

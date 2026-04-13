@@ -826,6 +826,62 @@
         "inquiryCost": 0.3
       },
       "canBeConfirmed": false
+    },
+    {
+      "id": "kb_057",
+      "subject": "Brain_Mass_Lesion",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Positive_CT_Scan",
+      "objectType": "Finding",
+      "metadata": {
+        "urgency": 0.95,
+        "specificity": 0.95,
+        "inquiryCost": 0.7
+      },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_058",
+      "subject": "Positive_CT_Scan",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "CT_Scan_Test",
+      "objectType": "Question",
+      "metadata": {
+        "urgency": 0.95,
+        "specificity": 0.95,
+        "inquiryCost": 0.7
+      },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_059",
+      "subject": "Focal_Process",
+      "subjectType": "Disease",
+      "relation": "CAUSES",
+      "object": "Focal_Neurological_Finding",
+      "objectType": "Finding",
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.8,
+        "inquiryCost": 0.2
+      },
+      "canBeConfirmed": true
+    },
+    {
+      "id": "kb_060",
+      "subject": "Focal_Neurological_Finding",
+      "subjectType": "Finding",
+      "relation": "CONFIRMED_BY",
+      "object": "Neurological_Exam",
+      "objectType": "Question",
+      "metadata": {
+        "urgency": 0.7,
+        "specificity": 0.8,
+        "inquiryCost": 0.3
+      },
+      "canBeConfirmed": true
     }
   ],
   "ssm": {
@@ -857,6 +913,22 @@
       {
         "id": "seed_vomiting",
         "label": "Vomiting",
+        "type": "Finding",
+        "status": "CONFIRMED",
+        "cf": 1.0,
+        "canBeConfirmed": false
+      },
+      {
+        "id": "seed_weakness",
+        "label": "Weakness",
+        "type": "Finding",
+        "status": "CONFIRMED",
+        "cf": 1.0,
+        "canBeConfirmed": false
+      },
+      {
+        "id": "seed_stiff_neck",
+        "label": "Stiff_Neck_On_Flexion",
         "type": "Finding",
         "status": "CONFIRMED",
         "cf": 1.0,
