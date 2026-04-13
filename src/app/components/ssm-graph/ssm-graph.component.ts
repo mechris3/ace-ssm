@@ -463,37 +463,34 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         return `translate(${d.x},${d.y})`;
       });
 
-    // Update searchlight ring position to track the active node.
-    // Only update if no transition is active (transition handles its own interpolation).
-    if (this.activeGoal) {
-      const target = this.simNodes.find(n => n.id === this.activeGoal!.anchorNodeId);
-      if (target) {
-        const ring = this.searchlightGroup.select<SVGCircleElement>('circle.searchlight-ring');
-        if (!ring.empty()) {
-          const node = ring.node();
-          // Check if a D3 transition is active on this element
-          const hasTransition = node && (node as any).__transition;
-          if (!hasTransition) {
-            ring.attr('cx', target.x ?? 0).attr('cy', target.y ?? 0);
-          }
-        }
-      }
-    }
+    // ── Searchlight: smooth per-tick interpolation ──────────────────
+    // Instead of a one-shot D3 transition (which animates toward a stale
+    // coordinate snapshot), the ring lerps toward the target node's CURRENT
+    // position every tick. This means:
+    //   - If the target node is still moving (simulation active), the ring
+    //     chases it smoothly and converges once the node settles.
+    //   - If the target node is stable, the ring glides to it over ~15-20
+    //     ticks (lerpFactor=0.08 → 63% of remaining distance per tick at
+    //     ~60fps ≈ smooth ~250ms convergence).
+    //   - No offscreen zoom: the ring always moves toward the node's real
+    //     position, never a stale snapshot.
+    // [Ref: MD Sec 4.3 Step 5 — Searchlight tracks the active goal's anchor]
+    this.tickSearchlight();
   }
 
   // ── Searchlight Effect ────────────────────────────────────────────
 
-  /** The node ID the searchlight was last positioned on. */
-  private searchlightCurrentNodeId: string | null = null;
+  /** The node ID the searchlight is currently tracking. */
+  private searchlightTargetNodeId: string | null = null;
 
   private updateSearchlight(): void {
-    // Clear active-edge highlighting from previous transit
+    // Clear active-edge highlighting
     this.edgeGroup.selectAll('g.edge-group')
       .classed('edge-active', false);
 
     if (!this.activeGoal) {
       this.searchlightGroup.selectAll('*').remove();
-      this.searchlightCurrentNodeId = null;
+      this.searchlightTargetNodeId = null;
       return;
     }
 
@@ -501,27 +498,24 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
     const target = this.simNodes.find(n => n.id === targetNodeId);
     if (!target) { return; }
 
-    const tx = target.x ?? 0;
-    const ty = target.y ?? 0;
-
-    // If the ring doesn't exist yet, create it at the target position
+    // Ensure the ring element exists
     let ring = this.searchlightGroup.select<SVGCircleElement>('circle.searchlight-ring');
     if (ring.empty()) {
+      // First time — place ring directly on the target
       this.searchlightGroup.append('circle')
         .attr('class', 'searchlight-ring')
-        .attr('cx', tx)
-        .attr('cy', ty)
+        .attr('cx', target.x ?? 0)
+        .attr('cy', target.y ?? 0)
         .attr('r', 30)
         .attr('fill', 'none');
-      this.searchlightCurrentNodeId = targetNodeId;
+      this.searchlightTargetNodeId = targetNodeId;
       return;
     }
 
-    // If the target hasn't changed, nothing to animate
-    if (this.searchlightCurrentNodeId === targetNodeId) { return; }
+    if (this.searchlightTargetNodeId === targetNodeId) { return; }
 
-    // Highlight the connecting edge during transit
-    const prevId = this.searchlightCurrentNodeId;
+    // Highlight the connecting edge between old and new target
+    const prevId = this.searchlightTargetNodeId;
     if (prevId) {
       this.edgeGroup.selectAll<SVGGElement, SimEdge>('g.edge-group')
         .filter((d: SimEdge) => {
@@ -533,19 +527,44 @@ export class SSMGraphComponent implements AfterViewInit, OnChanges, OnDestroy {
         .classed('edge-active', true);
     }
 
-    // Animate the ring from current position to the new target
-    ring.transition()
-      .duration(500)
-      .ease(d3.easeCubicInOut)
-      .attr('cx', tx)
-      .attr('cy', ty)
-      .on('end', () => {
-        // Clear edge highlight after transit completes
-        this.edgeGroup.selectAll('g.edge-group')
-          .classed('edge-active', false);
-      });
+    // Record the new target — tickSearchlight() will lerp toward it
+    this.searchlightTargetNodeId = targetNodeId;
+  }
 
-    this.searchlightCurrentNodeId = targetNodeId;
+  /**
+   * Called every simulation tick. Smoothly interpolates the searchlight ring
+   * toward the target node's current position using exponential lerp.
+   * Clears the edge highlight once the ring is close enough to the target.
+   */
+  private tickSearchlight(): void {
+    if (!this.searchlightTargetNodeId) return;
+
+    const target = this.simNodes.find(n => n.id === this.searchlightTargetNodeId);
+    if (!target) return;
+
+    const ring = this.searchlightGroup.select<SVGCircleElement>('circle.searchlight-ring');
+    if (ring.empty()) return;
+
+    const tx = target.x ?? 0;
+    const ty = target.y ?? 0;
+    const cx = parseFloat(ring.attr('cx')) || 0;
+    const cy = parseFloat(ring.attr('cy')) || 0;
+
+    // Exponential lerp: move 8% of the remaining distance each tick.
+    // At ~60fps this gives smooth ~250ms convergence. Fast enough to feel
+    // responsive, slow enough to read as a glide rather than a jump.
+    const lerpFactor = 0.08;
+    const nx = cx + (tx - cx) * lerpFactor;
+    const ny = cy + (ty - cy) * lerpFactor;
+
+    ring.attr('cx', nx).attr('cy', ny);
+
+    // Clear edge highlight once the ring is close to the target (within 2px)
+    const dist = Math.sqrt((tx - nx) ** 2 + (ty - ny) ** 2);
+    if (dist < 2) {
+      this.edgeGroup.selectAll('g.edge-group')
+        .classed('edge-active', false);
+    }
   }
 
   private updateSelection(): void {
