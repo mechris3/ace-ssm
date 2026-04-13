@@ -933,24 +933,9 @@
         "status": "CONFIRMED",
         "cf": 1.0,
         "canBeConfirmed": false
-      },
-      {
-        "id": "seed_neck_flexion_test",
-        "label": "Neck_Flexion_Test",
-        "type": "Question",
-        "status": "REFUTED",
-        "cf": 0.0,
-        "canBeConfirmed": false
       }
     ],
-    "edges": [
-      {
-        "id": "edge_preseeded_confirmed_by",
-        "source": "seed_stiff_neck",
-        "target": "seed_neck_flexion_test",
-        "relationType": "CONFIRMED_BY"
-      }
-    ],
+    "edges": [],
     "history": [],
     "isRunning": false,
     "waitingForUser": false,
