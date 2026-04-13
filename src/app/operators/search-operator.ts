@@ -71,33 +71,36 @@ export function scoreGoals(
   const refutedNodes = ssm.nodes.filter(n => n.status === 'REFUTED');
 
   if (refutedNodes.length > 0) {
-    // Build reverse adjacency: for each edge target → source
-    const reverseAdj = new Map<string, Set<string>>();
+    // Build bidirectional adjacency: for each edge, both endpoints can reach each other.
+    // Refutation taint propagates through the graph regardless of edge direction —
+    // if a Question is refuted, the Finding that CONFIRMED_BY it is tainted,
+    // and the Disease that CAUSES that Finding is also tainted.
+    const adjacency = new Map<string, Set<string>>();
     for (const e of ssm.edges) {
       const tgt = typeof e.target === 'string' ? e.target : (e.target as any).id;
       const src = typeof e.source === 'string' ? e.source : (e.source as any).id;
-      if (!reverseAdj.has(tgt)) reverseAdj.set(tgt, new Set());
-      reverseAdj.get(tgt)!.add(src);
+      if (!adjacency.has(tgt)) adjacency.set(tgt, new Set());
+      if (!adjacency.has(src)) adjacency.set(src, new Set());
+      adjacency.get(tgt)!.add(src);
+      adjacency.get(src)!.add(tgt);
     }
 
-    // BFS from each REFUTED node, propagating taint backward
+    // BFS from each REFUTED node, propagating taint bidirectionally
     const taintQueue: [string, number][] = refutedNodes.map(n => [n.id, 0.80]);
-    for (const n of refutedNodes) taintedPenalties.set(n.id, 0.99); // Direct refutation handled by status check
+    for (const n of refutedNodes) taintedPenalties.set(n.id, 0.99);
 
     while (taintQueue.length > 0) {
       const [nodeId, penalty] = taintQueue.shift()!;
-      const parents = reverseAdj.get(nodeId);
-      if (!parents) continue;
+      const neighbors = adjacency.get(nodeId);
+      if (!neighbors) continue;
 
-      for (const parentId of parents) {
-        const existing = taintedPenalties.get(parentId) ?? 0;
-        // Take the maximum taint (worst case from any refuted descendant)
+      for (const neighborId of neighbors) {
+        const existing = taintedPenalties.get(neighborId) ?? 0;
         if (penalty > existing) {
-          taintedPenalties.set(parentId, penalty);
-          // Propagate further with diminishing penalty (0.8× per hop)
+          taintedPenalties.set(neighborId, penalty);
           const nextPenalty = penalty * 0.8;
-          if (nextPenalty > 0.05) { // Stop propagating below 5%
-            taintQueue.push([parentId, nextPenalty]);
+          if (nextPenalty > 0.05) {
+            taintQueue.push([neighborId, nextPenalty]);
           }
         }
       }
